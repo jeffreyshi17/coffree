@@ -17,11 +17,13 @@ export default function PhoneManager({ refreshTrigger }: { refreshTrigger: numbe
   const [removePhone, setRemovePhone] = useState('');
   const [loading, setLoading] = useState(false);
   const [removeLoading, setRemoveLoading] = useState(false);
+  const [isLoadingPhones, setIsLoadingPhones] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [removeError, setRemoveError] = useState<string | null>(null);
   const [removeSuccess, setRemoveSuccess] = useState<string | null>(null);
 
   const fetchPhones = async () => {
+    setIsLoadingPhones(true);
     try {
       const response = await fetch('/api/phone');
       const data = await response.json();
@@ -30,6 +32,8 @@ export default function PhoneManager({ refreshTrigger }: { refreshTrigger: numbe
       }
     } catch (err) {
       console.error('Failed to fetch phones:', err);
+    } finally {
+      setIsLoadingPhones(false);
     }
   };
 
@@ -110,7 +114,11 @@ export default function PhoneManager({ refreshTrigger }: { refreshTrigger: numbe
           </div>
           <div>
             <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Phone Subscribers</h2>
-            <p className="text-sm text-gray-500 dark:text-gray-400">{phones.length} active subscriber{phones.length !== 1 ? 's' : ''}</p>
+            {isLoadingPhones ? (
+              <div className="h-5 w-32 bg-gray-300 dark:bg-gray-600 rounded animate-pulse mt-1" />
+            ) : (
+              <p className="text-sm text-gray-500 dark:text-gray-400">{phones.length} active subscriber{phones.length !== 1 ? 's' : ''}</p>
+            )}
           </div>
         </div>
 
@@ -151,7 +159,21 @@ export default function PhoneManager({ refreshTrigger }: { refreshTrigger: numbe
         </form>
 
         <div className="space-y-2 max-h-96 overflow-y-auto">
-          {phones.length === 0 ? (
+          {isLoadingPhones ? (
+            <div className="space-y-2">
+              {[1, 2, 3].map((i) => (
+                <div
+                  key={i}
+                  className="flex items-center gap-3 p-4 bg-gray-50 dark:bg-gray-700/50 rounded-lg animate-pulse"
+                >
+                  <div className="w-5 h-5 bg-gray-300 dark:bg-gray-600 rounded" />
+                  <div className="flex-1 space-y-2">
+                    <div className="h-4 bg-gray-300 dark:bg-gray-600 rounded w-32" />
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : phones.length === 0 ? (
             <div className="text-center py-8 text-gray-500 dark:text-gray-400">
               <Phone className="w-12 h-12 mx-auto mb-3 opacity-50" />
               <p>No subscribers yet. Add a phone number to get started!</p>
