@@ -52,20 +52,20 @@ export default function CoffeeLinkForm({ onSendSuccess }: { onSendSuccess: () =>
 
   return (
     <div className="w-full max-w-2xl mx-auto">
-      <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl p-8 border border-gray-100 dark:border-gray-700">
+      <div className="bg-white rounded-lg shadow-sm p-8 border border-gray-200">
         <div className="flex items-center gap-3 mb-6">
-          <div className="p-3 bg-gradient-to-br from-amber-500 to-orange-600 rounded-xl">
-            <Coffee className="w-8 h-8 text-white" />
+          <div className="p-3 bg-amber-100 rounded-lg">
+            <Coffee className="w-8 h-8 text-amber-700" />
           </div>
           <div>
-            <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Send Coffee Link</h2>
-            <p className="text-sm text-gray-500 dark:text-gray-400">Share free coffee with all subscribers</p>
+            <h2 className="text-2xl font-bold text-gray-900">Send Coffee Link</h2>
+            <p className="text-sm text-gray-600">Share free coffee with all subscribers</p>
           </div>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label htmlFor="link" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+            <label htmlFor="link" className="block text-sm font-medium text-gray-700 mb-2">
               Capital One Coffee Link
             </label>
             <input
@@ -74,7 +74,7 @@ export default function CoffeeLinkForm({ onSendSuccess }: { onSendSuccess: () =>
               value={link}
               onChange={(e) => setLink(e.target.value)}
               placeholder="https://coffree.capitalone.com/sms/?cid=xxx&mc=yyy"
-              className="w-full px-4 py-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-400 focus:ring-2 focus:ring-amber-500 focus:border-transparent transition"
+              className="w-full px-4 py-3 rounded-md border border-gray-300 bg-white text-gray-900 placeholder-gray-400 focus:outline-none focus:border-gray-900 transition"
               required
               disabled={loading}
             />
@@ -83,7 +83,7 @@ export default function CoffeeLinkForm({ onSendSuccess }: { onSendSuccess: () =>
           <button
             type="submit"
             disabled={loading || !link}
-            className="w-full bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-600 hover:to-orange-700 text-white font-semibold py-3 px-6 rounded-lg shadow-lg hover:shadow-xl transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+            className="w-full bg-gray-900 hover:bg-gray-700 text-white font-medium py-3 px-6 rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
           >
             {loading ? (
               <>
@@ -100,24 +100,24 @@ export default function CoffeeLinkForm({ onSendSuccess }: { onSendSuccess: () =>
         </form>
 
         {error && (
-          <div className="mt-4 p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg flex items-start gap-3">
-            <AlertCircle className="w-5 h-5 text-red-600 dark:text-red-400 flex-shrink-0 mt-0.5" />
+          <div className="mt-4 p-4 bg-red-50 border border-red-200 rounded-md flex items-start gap-3">
+            <AlertCircle className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
             <div>
-              <p className="text-sm font-medium text-red-800 dark:text-red-200">Error</p>
-              <p className="text-sm text-red-600 dark:text-red-300">{error}</p>
+              <p className="text-sm font-medium text-red-900">Error</p>
+              <p className="text-sm text-red-700">{error}</p>
             </div>
           </div>
         )}
 
         {result && (
-          <div className="mt-4 p-4 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg">
+          <div className="mt-4 p-4 bg-green-50 border border-green-200 rounded-md">
             <div className="flex items-start gap-3">
-              <CheckCircle2 className="w-5 h-5 text-green-600 dark:text-green-400 flex-shrink-0 mt-0.5" />
+              <CheckCircle2 className="w-5 h-5 text-green-600 flex-shrink-0 mt-0.5" />
               <div className="flex-1">
-                <p className="text-sm font-medium text-green-800 dark:text-green-200">Success!</p>
-                <p className="text-sm text-green-600 dark:text-green-300">{result.message}</p>
+                <p className="text-sm font-medium text-green-900">Success!</p>
+                <p className="text-sm text-green-700">{result.message}</p>
                 {result.campaignId && (
-                  <div className="mt-2 text-xs text-green-600 dark:text-green-400">
+                  <div className="mt-2 text-xs text-green-700">
                     Campaign: {result.campaignId} | Channel: {result.marketingChannel}
                   </div>
                 )}

@@ -107,17 +107,17 @@ export default function PhoneManager({ refreshTrigger }: { refreshTrigger: numbe
   return (
     <div className="w-full max-w-2xl mx-auto space-y-6">
       {/* Add Subscriber */}
-      <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl p-8 border border-gray-100 dark:border-gray-700">
+      <div className="bg-white rounded-lg shadow-sm p-8 border border-gray-200">
         <div className="flex items-center gap-3 mb-6">
-          <div className="p-3 bg-gradient-to-br from-blue-500 to-purple-600 rounded-xl">
-            <Phone className="w-8 h-8 text-white" />
+          <div className="p-3 bg-blue-100 rounded-lg">
+            <Phone className="w-8 h-8 text-blue-700" />
           </div>
           <div>
-            <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Phone Subscribers</h2>
+            <h2 className="text-2xl font-bold text-gray-900">Phone Subscribers</h2>
             {isLoadingPhones ? (
-              <div className="h-5 w-32 bg-gray-300 dark:bg-gray-600 rounded animate-pulse mt-1" />
+              <div className="h-5 w-32 bg-gray-200 rounded animate-pulse mt-1" />
             ) : (
-              <p className="text-sm text-gray-500 dark:text-gray-400">{phones.length} active subscriber{phones.length !== 1 ? 's' : ''}</p>
+              <p className="text-sm text-gray-600">{phones.length} active subscriber{phones.length !== 1 ? 's' : ''}</p>
             )}
           </div>
         </div>
@@ -130,14 +130,14 @@ export default function PhoneManager({ refreshTrigger }: { refreshTrigger: numbe
                 value={newPhone}
                 onChange={(e) => setNewPhone(e.target.value)}
                 placeholder="(555) 123-4567"
-                className="w-full px-4 py-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-400 focus:ring-2 focus:ring-blue-500 focus:border-transparent transition"
+                className="w-full px-4 py-3 rounded-md border border-gray-300 bg-white text-gray-900 placeholder-gray-400 focus:outline-none focus:border-gray-900 transition"
                 disabled={loading}
               />
             </div>
             <select
               value={platform}
               onChange={(e) => setPlatform(e.target.value as 'android' | 'apple')}
-              className="px-4 py-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent transition"
+              className="px-4 py-3 rounded-md border border-gray-300 bg-white text-gray-900 focus:outline-none focus:border-gray-900 transition"
               disabled={loading}
             >
               <option value="android">Android</option>
@@ -146,7 +146,7 @@ export default function PhoneManager({ refreshTrigger }: { refreshTrigger: numbe
             <button
               type="submit"
               disabled={loading || !newPhone}
-              className="px-6 py-3 bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white font-semibold rounded-lg shadow-lg hover:shadow-xl transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+              className="px-6 py-3 bg-gray-900 hover:bg-gray-700 text-white font-medium rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
             >
               <Plus className="w-5 h-5" />
               Add
@@ -154,7 +154,7 @@ export default function PhoneManager({ refreshTrigger }: { refreshTrigger: numbe
           </div>
 
           {error && (
-            <p className="text-sm text-red-600 dark:text-red-400">{error}</p>
+            <p className="text-sm text-red-700">{error}</p>
           )}
         </form>
 
@@ -164,17 +164,17 @@ export default function PhoneManager({ refreshTrigger }: { refreshTrigger: numbe
               {[1, 2, 3].map((i) => (
                 <div
                   key={i}
-                  className="flex items-center gap-3 p-4 bg-gray-50 dark:bg-gray-700/50 rounded-lg animate-pulse"
+                  className="flex items-center gap-3 p-4 bg-gray-50 rounded-md animate-pulse"
                 >
-                  <div className="w-5 h-5 bg-gray-300 dark:bg-gray-600 rounded" />
+                  <div className="w-5 h-5 bg-gray-200 rounded" />
                   <div className="flex-1 space-y-2">
-                    <div className="h-4 bg-gray-300 dark:bg-gray-600 rounded w-32" />
+                    <div className="h-4 bg-gray-200 rounded w-32" />
                   </div>
                 </div>
               ))}
             </div>
           ) : phones.length === 0 ? (
-            <div className="text-center py-8 text-gray-500 dark:text-gray-400">
+            <div className="text-center py-8 text-gray-500">
               <Phone className="w-12 h-12 mx-auto mb-3 opacity-50" />
               <p>No subscribers yet. Add a phone number to get started!</p>
             </div>
@@ -182,18 +182,18 @@ export default function PhoneManager({ refreshTrigger }: { refreshTrigger: numbe
             phones.map((phone) => (
               <div
                 key={phone.id}
-                className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-700/50 rounded-lg"
+                className="flex items-center justify-between p-4 bg-gray-50 rounded-md"
               >
                 <div className="flex items-center gap-3">
                   {phone.platform === 'android' ? (
-                    <Smartphone className="w-5 h-5 text-green-600 dark:text-green-400" />
+                    <Smartphone className="w-5 h-5 text-green-600" />
                   ) : (
-                    <Apple className="w-5 h-5 text-gray-700 dark:text-gray-300" />
+                    <Apple className="w-5 h-5 text-gray-700" />
                   )}
-                  <span className="font-medium text-gray-900 dark:text-white">
+                  <span className="font-medium text-gray-900">
                     {anonymizePhone(phone.phone)}
                   </span>
-                  <span className="text-xs text-gray-500 dark:text-gray-400 capitalize">
+                  <span className="text-xs text-gray-500 capitalize">
                     {phone.platform}
                   </span>
                 </div>
@@ -204,14 +204,14 @@ export default function PhoneManager({ refreshTrigger }: { refreshTrigger: numbe
       </div>
 
       {/* Self-Service Unsubscribe */}
-      <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl p-8 border border-gray-100 dark:border-gray-700">
+      <div className="bg-white rounded-lg shadow-sm p-8 border border-gray-200">
         <div className="flex items-center gap-3 mb-6">
-          <div className="p-3 bg-gradient-to-br from-red-500 to-pink-600 rounded-xl">
-            <UserMinus className="w-8 h-8 text-white" />
+          <div className="p-3 bg-red-100 rounded-lg">
+            <UserMinus className="w-8 h-8 text-red-700" />
           </div>
           <div>
-            <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Unsubscribe</h2>
-            <p className="text-sm text-gray-500 dark:text-gray-400">Remove your number from the mailing list</p>
+            <h2 className="text-2xl font-bold text-gray-900">Unsubscribe</h2>
+            <p className="text-sm text-gray-600">Remove your number from the mailing list</p>
           </div>
         </div>
 
@@ -223,14 +223,14 @@ export default function PhoneManager({ refreshTrigger }: { refreshTrigger: numbe
                 value={removePhone}
                 onChange={(e) => setRemovePhone(e.target.value)}
                 placeholder="Enter your phone number"
-                className="w-full px-4 py-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-400 focus:ring-2 focus:ring-red-500 focus:border-transparent transition"
+                className="w-full px-4 py-3 rounded-md border border-gray-300 bg-white text-gray-900 placeholder-gray-400 focus:outline-none focus:border-gray-900 transition"
                 disabled={removeLoading}
               />
             </div>
             <button
               type="submit"
               disabled={removeLoading || !removePhone}
-              className="px-6 py-3 bg-gradient-to-r from-red-500 to-pink-600 hover:from-red-600 hover:to-pink-700 text-white font-semibold rounded-lg shadow-lg hover:shadow-xl transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+              className="px-6 py-3 bg-red-600 hover:bg-red-700 text-white font-medium rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
             >
               <UserMinus className="w-5 h-5" />
               Unsubscribe
@@ -238,11 +238,11 @@ export default function PhoneManager({ refreshTrigger }: { refreshTrigger: numbe
           </div>
 
           {removeError && (
-            <p className="text-sm text-red-600 dark:text-red-400">{removeError}</p>
+            <p className="text-sm text-red-700">{removeError}</p>
           )}
 
           {removeSuccess && (
-            <p className="text-sm text-green-600 dark:text-green-400">{removeSuccess}</p>
+            <p className="text-sm text-green-700">{removeSuccess}</p>
           )}
         </form>
       </div>

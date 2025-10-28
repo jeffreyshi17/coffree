@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "FreeCoffee - Capital One Coffee Redemption",
+  title: "Coffree - Capital One Coffee Redemption",
   description: "Automatically redeem Capital One free coffee offers",
 };
 
