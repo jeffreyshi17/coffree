@@ -123,7 +123,7 @@ export default function PhoneManager({ refreshTrigger }: { refreshTrigger: numbe
         </div>
 
         <form onSubmit={handleAdd} className="space-y-4 mb-6">
-          <div className="flex gap-3">
+          <div className="flex flex-col sm:flex-row gap-3">
             <div className="flex-1">
               <input
                 type="tel"
@@ -137,7 +137,7 @@ export default function PhoneManager({ refreshTrigger }: { refreshTrigger: numbe
             <select
               value={platform}
               onChange={(e) => setPlatform(e.target.value as 'android' | 'apple')}
-              className="px-4 py-3 rounded-md border border-gray-300 bg-white text-gray-900 focus:outline-none focus:border-gray-900 transition"
+              className="w-full sm:w-auto px-4 py-3 rounded-md border border-gray-300 bg-white text-gray-900 focus:outline-none focus:border-gray-900 transition"
               disabled={loading}
             >
               <option value="android">Android</option>
@@ -146,7 +146,7 @@ export default function PhoneManager({ refreshTrigger }: { refreshTrigger: numbe
             <button
               type="submit"
               disabled={loading || !newPhone}
-              className="px-6 py-3 bg-gray-900 hover:bg-gray-700 text-white font-medium rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+              className="w-full sm:w-auto px-6 py-3 bg-gray-900 hover:bg-gray-700 text-white font-medium rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
             >
               <Plus className="w-5 h-5" />
               Add
@@ -216,7 +216,7 @@ export default function PhoneManager({ refreshTrigger }: { refreshTrigger: numbe
         </div>
 
         <form onSubmit={handleRemove} className="space-y-4">
-          <div className="flex gap-3">
+          <div className="flex flex-col sm:flex-row gap-3">
             <div className="flex-1">
               <input
                 type="tel"
@@ -230,7 +230,7 @@ export default function PhoneManager({ refreshTrigger }: { refreshTrigger: numbe
             <button
               type="submit"
               disabled={removeLoading || !removePhone}
-              className="px-6 py-3 bg-red-600 hover:bg-red-700 text-white font-medium rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+              className="w-full sm:w-auto px-6 py-3 bg-red-600 hover:bg-red-700 text-white font-medium rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
             >
               <UserMinus className="w-5 h-5" />
               Unsubscribe
