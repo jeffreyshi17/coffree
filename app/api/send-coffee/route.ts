@@ -144,27 +144,8 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Invalid link format. Expected format: https://coffree.capitalone.com/sms/?cid=xxx&mc=yyy' }, { status: 400 });
     }
 
-    // Check if this campaign has been submitted before
-    const supabase = createClient(supabaseUrl, supabaseKey);
-    const { data: existingLogs, error: checkError } = await supabase
-      .from('message_logs')
-      .select('created_at, status')
-      .eq('campaign_id', parsed.cid)
-      .limit(1);
-
-    if (checkError) {
-      console.error('Error checking for duplicates:', checkError);
-    } else if (existingLogs && existingLogs.length > 0) {
-      const lastSubmission = new Date(existingLogs[0].created_at);
-      const timeAgo = formatTimeAgo(lastSubmission);
-      return NextResponse.json({
-        error: `This coffee link has already been submitted ${timeAgo}`,
-        type: 'duplicate',
-        previousSubmission: lastSubmission.toISOString()
-      }, { status: 400 });
-    }
-
     // Validate the campaign
+    const supabase = createClient(supabaseUrl, supabaseKey);
     const validation = await validateCampaign(parsed.cid, parsed.mc);
     if (!validation.valid) {
       return NextResponse.json({
@@ -186,9 +167,30 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'No phone numbers subscribed' }, { status: 400 });
     }
 
-    // Send to all phone numbers and log results
+    // Check which phones have already received this campaign successfully
+    const { data: existingLogs } = await supabase
+      .from('message_logs')
+      .select('phone_number')
+      .eq('campaign_id', parsed.cid)
+      .eq('status', 'success');
+
+    const alreadyReceivedPhones = new Set(
+      existingLogs?.map(log => log.phone_number) || []
+    );
+
+    // Send to phone numbers that haven't received this campaign yet
     const results = await Promise.all(
       phones.map(async (phoneRecord) => {
+        // Skip if this phone already successfully received this campaign
+        if (alreadyReceivedPhones.has(phoneRecord.phone)) {
+          return {
+            phone: phoneRecord.phone,
+            success: true,
+            skipped: true,
+            error: 'Already received this campaign',
+          };
+        }
+
         const result = await sendCoffeeToPhone(
           phoneRecord.phone,
           phoneRecord.platform,
@@ -209,20 +211,33 @@ export async function POST(request: NextRequest) {
         return {
           phone: phoneRecord.phone,
           success: result.success,
+          skipped: false,
           error: result.error,
         };
       })
     );
 
-    const successCount = results.filter(r => r.success).length;
-    const failedCount = results.filter(r => !r.success).length;
+    const successCount = results.filter(r => r.success && !r.skipped).length;
+    const skippedCount = results.filter(r => r.skipped).length;
+    const failedCount = results.filter(r => !r.success && !r.skipped).length;
+
+    const messageParts = [];
+    if (successCount > 0) messageParts.push(`Sent to ${successCount} phone(s)`);
+    if (skippedCount > 0) messageParts.push(`${skippedCount} skipped (already received)`);
+    if (failedCount > 0) messageParts.push(`${failedCount} failed`);
 
     return NextResponse.json({
       success: true,
-      message: `Sent to ${successCount} phone(s), ${failedCount} failed`,
+      message: messageParts.join(', '),
       results,
       campaignId: parsed.cid,
       marketingChannel: parsed.mc,
+      stats: {
+        sent: successCount,
+        skipped: skippedCount,
+        failed: failedCount,
+        total: phones.length
+      }
     });
 
   } catch (error) {
