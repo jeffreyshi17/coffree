@@ -106,16 +106,15 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Phone number already subscribed' }, { status: 400 });
     }
 
-    // Get the most recent SUCCESSFUL campaign from message_logs to test with
-    const { data: recentLog } = await supabase
-      .from('message_logs')
-      .select('campaign_id, marketing_channel')
-      .eq('status', 'success')
-      .order('created_at', { ascending: false })
-      .limit(1)
-      .single();
+    // Get all valid campaigns to test with
+    const { data: validCampaigns } = await supabase
+      .from('campaigns')
+      .select('*')
+      .eq('is_valid', true)
+      .eq('is_expired', false)
+      .order('first_seen_at', { ascending: false });
 
-    if (!recentLog) {
+    if (!validCampaigns || validCampaigns.length === 0) {
       // No campaigns yet, just add the number without testing
       const { data, error } = await supabase
         .from('phone_numbers')
@@ -134,35 +133,64 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    // Test the phone number with Capital One API
-    console.log(`Testing phone ${normalizedPhone} with campaign ${recentLog.campaign_id}`);
-    const testResult = await testPhoneWithCapitalOne(
-      normalizedPhone,
-      platform,
-      recentLog.campaign_id,
-      recentLog.marketing_channel
-    );
+    // Test the phone with all valid campaigns
+    console.log(`Testing phone ${normalizedPhone} with ${validCampaigns.length} campaigns`);
+    let phoneIsValid = false;
+    let testedCampaigns: string[] = [];
 
-    if (!testResult.success) {
-      const errorLower = (testResult.error || '').toLowerCase();
+    for (const campaign of validCampaigns) {
+      const testResult = await testPhoneWithCapitalOne(
+        normalizedPhone,
+        platform,
+        campaign.campaign_id,
+        campaign.marketing_channel
+      );
 
-      // Check if error is about the campaign (not the phone)
-      if (errorLower.includes('invalid campaign') ||
-          errorLower.includes('expired') ||
-          errorLower.includes('campaign')) {
-        // Campaign issue - can't validate phone, just add it anyway
-        console.log(`Campaign ${recentLog.campaign_id} is invalid, adding phone without validation`);
-      } else if (errorLower.includes('phone')) {
-        // Phone number issue - reject it
-        return NextResponse.json({
-          error: 'Invalid phone number - Capital One rejected it',
-          details: testResult.error
-        }, { status: 400 });
+      testedCampaigns.push(campaign.campaign_id);
+
+      if (testResult.success) {
+        phoneIsValid = true;
+        // Log successful test
+        await supabase.from('message_logs').insert({
+          campaign_id: campaign.campaign_id,
+          marketing_channel: campaign.marketing_channel,
+          link: campaign.full_link,
+          phone_number: normalizedPhone,
+          status: 'success',
+          error_message: 'Phone validation test',
+        });
+      } else {
+        const errorLower = (testResult.error || '').toLowerCase();
+
+        // Check if campaign is expired/invalid
+        if (errorLower.includes('invalid campaign') ||
+            errorLower.includes('expired') ||
+            errorLower.includes('campaign')) {
+          // Mark this campaign as expired/invalid
+          console.log(`Campaign ${campaign.campaign_id} is invalid/expired, updating status`);
+          await supabase
+            .from('campaigns')
+            .update({
+              is_valid: false,
+              is_expired: errorLower.includes('expired')
+            })
+            .eq('campaign_id', campaign.campaign_id);
+        } else if (errorLower.includes('phone')) {
+          // Phone number issue - reject it
+          return NextResponse.json({
+            error: 'Invalid phone number - Capital One rejected it',
+            details: testResult.error
+          }, { status: 400 });
+        }
       }
-      // For other errors, add the phone anyway (benefit of the doubt)
     }
 
-    // Phone is valid! Add it to the database
+    // If phone wasn't validated by any campaign but no phone error was returned, add it anyway
+    if (!phoneIsValid) {
+      console.log(`Couldn't validate phone with any campaign, but no phone errors - adding anyway`);
+    }
+
+    // Add the phone to the database
     const { data, error } = await supabase
       .from('phone_numbers')
       .insert({ phone: normalizedPhone, platform })
@@ -173,21 +201,13 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Failed to add phone number' }, { status: 500 });
     }
 
-    // Log the test message
-    await supabase.from('message_logs').insert({
-      campaign_id: recentLog.campaign_id,
-      marketing_channel: recentLog.marketing_channel,
-      link: `Test validation for ${normalizedPhone}`,
-      phone_number: normalizedPhone,
-      status: 'success',
-      error_message: 'Phone validation test',
-    });
-
     return NextResponse.json({
       success: true,
       phone: data,
-      message: 'Phone validated and added successfully',
-      testedWith: recentLog.campaign_id
+      message: phoneIsValid
+        ? `Phone validated and added successfully (tested with ${testedCampaigns.length} campaigns)`
+        : `Phone added (couldn't validate with available campaigns)`,
+      testedWith: testedCampaigns
     });
   } catch (error) {
     console.error('Error in POST /api/phone:', error);

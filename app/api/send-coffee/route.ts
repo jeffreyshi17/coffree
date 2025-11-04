@@ -148,10 +148,46 @@ export async function POST(request: NextRequest) {
     const supabase = createClient(supabaseUrl, supabaseKey);
     const validation = await validateCampaign(parsed.cid, parsed.mc);
     if (!validation.valid) {
+      // If the campaign is invalid or expired, update its status in the campaigns table
+      await supabase
+        .from('campaigns')
+        .update({
+          is_valid: false,
+          is_expired: validation.error === 'Campaign Expired'
+        })
+        .eq('campaign_id', parsed.cid);
+
       return NextResponse.json({
         error: validation.error,
         type: validation.error === 'Invalid Campaign Id' ? 'invalid' : 'expired'
       }, { status: 400 });
+    }
+
+    // Record this campaign in the campaigns table if it doesn't exist
+    const { data: existingCampaign } = await supabase
+      .from('campaigns')
+      .select('*')
+      .eq('campaign_id', parsed.cid)
+      .single();
+
+    if (!existingCampaign) {
+      // This is a new manually-added campaign
+      await supabase
+        .from('campaigns')
+        .insert({
+          campaign_id: parsed.cid,
+          marketing_channel: parsed.mc,
+          full_link: link,
+          source: 'manual',
+          is_valid: true,
+          is_expired: false,
+        });
+    } else if (!existingCampaign.first_submitted_at) {
+      // Update the first submission timestamp
+      await supabase
+        .from('campaigns')
+        .update({ first_submitted_at: new Date().toISOString() })
+        .eq('campaign_id', parsed.cid);
     }
 
     // Get all phone numbers from Supabase

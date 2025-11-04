@@ -197,6 +197,47 @@ class CoffreeFinder:
             print(f"   ❌ Submission failed: {e}")
             return False
 
+    def log_search(self, status: str, campaigns_found: int, new_campaigns: int, error: str = None):
+        """Log the search activity to the database"""
+        try:
+            response = requests.post(
+                f"{API_BASE_URL}/api/search-logs",
+                json={
+                    'search_type': 'reddit',
+                    'status': status,
+                    'campaigns_found': campaigns_found,
+                    'new_campaigns': new_campaigns,
+                    'subreddits_searched': SUBREDDITS,
+                    'error_message': error
+                },
+                timeout=10
+            )
+            return response.ok
+        except Exception as e:
+            print(f"⚠️  Failed to log search: {e}")
+            return False
+
+    def record_campaign(self, link: str, reddit_post_url: str = None, reddit_subreddit: str = None) -> bool:
+        """Record a campaign in the database"""
+        try:
+            response = requests.post(
+                f"{API_BASE_URL}/api/campaigns",
+                json={
+                    'full_link': link,
+                    'source': 'auto',
+                    'reddit_post_url': reddit_post_url,
+                    'reddit_subreddit': reddit_subreddit
+                },
+                timeout=10
+            )
+            return response.ok
+        except Exception as e:
+            # Campaign might already exist, which is fine
+            if 'already exists' in str(e).lower():
+                return True
+            print(f"⚠️  Failed to record campaign: {e}")
+            return False
+
     def run(self, timeframe: str = 'month', auto_submit: bool = False):
         """
         Main run loop - search Reddit and optionally submit links
@@ -205,6 +246,9 @@ class CoffreeFinder:
             timeframe: Time period to search (hour, day, week, month, year, all)
             auto_submit: If True, automatically submit new links
         """
+        import time as time_module
+        start_time = time_module.time()
+
         print(f"\n🚀 Coffree Finder Starting...")
         print(f"📅 Timeframe: {timeframe}")
         print(f"🤖 Auto-submit: {'ON' if auto_submit else 'OFF'}")
@@ -262,6 +306,32 @@ class CoffreeFinder:
 
             print()
 
+        # Record all found campaigns in the database
+        print(f"\n{'='*80}")
+        print("Recording Campaigns:")
+        print(f"{'='*80}\n")
+
+        recorded_count = 0
+        for link in all_unique_links:
+            campaign_id = self.parse_campaign_id(link)
+
+            # Find the Reddit post info for this link
+            reddit_post_url = None
+            reddit_subreddit = None
+            for post_info in all_posts:
+                if link in post_info['links']:
+                    reddit_post_url = post_info['url']
+                    reddit_subreddit = post_info['subreddit']
+                    break
+
+            if self.record_campaign(link, reddit_post_url, reddit_subreddit):
+                print(f"✅ Recorded Campaign ID: {campaign_id}")
+                recorded_count += 1
+            else:
+                print(f"⚠️  Could not record Campaign ID: {campaign_id}")
+
+        print(f"\nRecorded {recorded_count}/{len(all_unique_links)} campaigns\n")
+
         # Now process submissions if auto_submit is enabled
         submitted_count = 0
         skipped_count = 0
@@ -298,6 +368,16 @@ class CoffreeFinder:
             print(f"❌ Failed/Duplicates: {failed_count}")
         else:
             print(f"⏸️  Skipped (auto-submit disabled): {skipped_count}")
+
+        # Log the search activity
+        duration = int(time_module.time() - start_time)
+        print(f"\n⏱️  Search completed in {duration} seconds")
+        print(f"📊 Logging search activity...")
+        self.log_search(
+            status='success',
+            campaigns_found=len(all_unique_links),
+            new_campaigns=submitted_count if auto_submit else 0
+        )
 
 
 def main():

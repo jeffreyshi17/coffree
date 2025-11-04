@@ -104,6 +104,18 @@ export default function PhoneManager({ refreshTrigger }: { refreshTrigger: numbe
     return '****';
   };
 
+  const formatDateTime = (dateString: string) => {
+    const date = new Date(dateString);
+    return date.toLocaleString(undefined, {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric',
+      hour: 'numeric',
+      minute: '2-digit',
+      hour12: true
+    });
+  };
+
   return (
     <div className="w-full max-w-2xl mx-auto space-y-6">
       {/* Add Subscriber */}
@@ -190,12 +202,19 @@ export default function PhoneManager({ refreshTrigger }: { refreshTrigger: numbe
                   ) : (
                     <Apple className="w-5 h-5 text-gray-700" />
                   )}
-                  <span className="font-medium text-gray-900">
-                    {anonymizePhone(phone.phone)}
-                  </span>
-                  <span className="text-xs text-gray-500 capitalize">
-                    {phone.platform}
-                  </span>
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <span className="font-medium text-gray-900">
+                        {anonymizePhone(phone.phone)}
+                      </span>
+                      <span className="text-xs text-gray-500 capitalize">
+                        {phone.platform}
+                      </span>
+                    </div>
+                    <span className="text-xs text-gray-500">
+                      Added {formatDateTime(phone.created_at)}
+                    </span>
+                  </div>
                 </div>
               </div>
             ))

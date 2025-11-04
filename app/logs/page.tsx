@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import MessageLogs from '@/components/MessageLogs';
+import SearchTracker from '@/components/SearchTracker';
 import { ArrowLeft, Coffee } from 'lucide-react';
 import Link from 'next/link';
 
@@ -36,8 +37,16 @@ export default function LogsPage() {
       </header>
 
       {/* Main Content */}
-      <main className="container mx-auto px-4 py-12">
-        <MessageLogs refreshTrigger={refreshTrigger} />
+      <main className="container mx-auto px-4 py-12 space-y-8">
+        {/* Search Tracker */}
+        <section>
+          <SearchTracker />
+        </section>
+
+        {/* Message Logs */}
+        <section>
+          <MessageLogs refreshTrigger={refreshTrigger} />
+        </section>
       </main>
     </div>
   );
