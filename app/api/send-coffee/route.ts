@@ -11,6 +11,21 @@ interface CoffeeLink {
   mc: string;
 }
 
+function formatTimeAgo(date: Date): string {
+  const now = new Date();
+  const diffMs = now.getTime() - date.getTime();
+  const diffMins = Math.floor(diffMs / 60000);
+  const diffHours = Math.floor(diffMs / 3600000);
+  const diffDays = Math.floor(diffMs / 86400000);
+
+  if (diffMins < 1) return 'just now';
+  if (diffMins < 60) return `${diffMins} minute${diffMins > 1 ? 's' : ''} ago`;
+  if (diffHours < 24) return `${diffHours} hour${diffHours > 1 ? 's' : ''} ago`;
+  if (diffDays === 1) return 'yesterday';
+  if (diffDays < 7) return `${diffDays} days ago`;
+  return date.toLocaleDateString();
+}
+
 function parseCoffeeLink(url: string): CoffeeLink | null {
   try {
     const urlObj = new URL(url);
@@ -129,6 +144,26 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Invalid link format. Expected format: https://coffree.capitalone.com/sms/?cid=xxx&mc=yyy' }, { status: 400 });
     }
 
+    // Check if this campaign has been submitted before
+    const supabase = createClient(supabaseUrl, supabaseKey);
+    const { data: existingLogs, error: checkError } = await supabase
+      .from('message_logs')
+      .select('created_at, status')
+      .eq('campaign_id', parsed.cid)
+      .limit(1);
+
+    if (checkError) {
+      console.error('Error checking for duplicates:', checkError);
+    } else if (existingLogs && existingLogs.length > 0) {
+      const lastSubmission = new Date(existingLogs[0].created_at);
+      const timeAgo = formatTimeAgo(lastSubmission);
+      return NextResponse.json({
+        error: `This coffee link has already been submitted ${timeAgo}`,
+        type: 'duplicate',
+        previousSubmission: lastSubmission.toISOString()
+      }, { status: 400 });
+    }
+
     // Validate the campaign
     const validation = await validateCampaign(parsed.cid, parsed.mc);
     if (!validation.valid) {
@@ -139,7 +174,6 @@ export async function POST(request: NextRequest) {
     }
 
     // Get all phone numbers from Supabase
-    const supabase = createClient(supabaseUrl, supabaseKey);
     const { data: phones, error: fetchError } = await supabase
       .from('phone_numbers')
       .select('*');
