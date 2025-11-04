@@ -1,0 +1,41 @@
+name: Coffree Finder
+
+on:
+  schedule:
+    # Run every 6 hours (at 0:00, 6:00, 12:00, 18:00 UTC)
+    - cron: '0 */6 * * *'
+  # Allow manual trigger from Actions tab
+  workflow_dispatch:
+
+jobs:
+  find-and-submit:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v3
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+
+    - name: Install dependencies
+      run: |
+        pip install -r requirements.txt
+
+    - name: Run Coffree Finder
+      env:
+        API_BASE_URL: ${{ secrets.API_BASE_URL }}
+      run: |
+        python3 coffree_finder.py --timeframe day --auto-submit --api-url "$API_BASE_URL"
+
+    - name: Upload logs as artifact
+      if: always()
+      uses: actions/upload-artifact@v3
+      with:
+        name: coffree-finder-logs
+        path: |
+          *.log
+        retention-days: 7
+        if-no-files-found: ignore
