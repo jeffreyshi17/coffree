@@ -27,6 +27,8 @@ jobs:
     - name: Run Coffree Finder
       env:
         API_BASE_URL: ${{ secrets.API_BASE_URL }}
+        REDDIT_CLIENT_ID: ${{ secrets.REDDIT_CLIENT_ID }}
+        REDDIT_CLIENT_SECRET: ${{ secrets.REDDIT_CLIENT_SECRET }}
       run: |
         python3 coffree_finder.py --timeframe day --auto-submit --api-url "$API_BASE_URL"
 

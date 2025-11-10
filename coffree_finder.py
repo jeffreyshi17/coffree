@@ -11,6 +11,11 @@ from typing import List, Set, Dict, Optional
 import os
 from urllib.parse import urlparse, parse_qs
 import html
+import praw
+from dotenv import load_dotenv
+
+# Load environment variables from .env file
+load_dotenv()
 
 # Configuration
 # Only subreddits that have shown coffree links in the past year
@@ -37,6 +42,14 @@ class CoffreeFinder:
         })
         self.found_links: Set[str] = set()
 
+        # Initialize Reddit instance with read-only access
+        # These credentials allow read-only access without user authentication
+        self.reddit = praw.Reddit(
+            client_id=os.getenv('REDDIT_CLIENT_ID', '_your_client_id_here_'),
+            client_secret=os.getenv('REDDIT_CLIENT_SECRET', '_your_client_secret_here_'),
+            user_agent='CoffreeFinder/1.0 (Coffee Link Aggregator)'
+        )
+
     def search_reddit(self, subreddit: str, timeframe: str = 'month') -> List[Dict]:
         """
         Search a subreddit for coffree links
@@ -48,32 +61,38 @@ class CoffreeFinder:
         Returns:
             List of post data dictionaries
         """
-        params = {
-            'q': 'coffree.capitalone.com',
-            'restrict_sr': 'on',
-            't': timeframe,
-            'limit': 100,
-            'sort': 'new'
-        }
-
-        url = REDDIT_SEARCH_URL.format(subreddit)
-
         try:
             print(f"🔍 Searching r/{subreddit}...")
-            response = self.session.get(url, params=params, timeout=10)
-            response.raise_for_status()
 
-            data = response.json()
-            posts = data.get('data', {}).get('children', [])
+            # Get the subreddit
+            sub = self.reddit.subreddit(subreddit)
+
+            # Search for coffree links
+            results = sub.search(
+                query='coffree.capitalone.com',
+                time_filter=timeframe,
+                limit=100,
+                sort='new'
+            )
+
+            # Convert PRAW submission objects to dictionaries
+            posts = []
+            for submission in results:
+                posts.append({
+                    'title': submission.title,
+                    'selftext': submission.selftext,
+                    'url': submission.url,
+                    'permalink': submission.permalink,
+                    'created_utc': submission.created_utc,
+                    'id': submission.id,
+                    'author': str(submission.author) if submission.author else '[deleted]',
+                })
 
             print(f"   Found {len(posts)} posts")
-            return [post['data'] for post in posts]
+            return posts
 
-        except requests.exceptions.RequestException as e:
-            print(f"   ❌ Error searching r/{subreddit}: {e}")
-            return []
         except Exception as e:
-            print(f"   ❌ Unexpected error: {e}")
+            print(f"   ❌ Error searching r/{subreddit}: {e}")
             return []
 
     def extract_links_from_post(self, post: Dict) -> List[str]:
