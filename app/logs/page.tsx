@@ -1,14 +1,10 @@
 'use client';
 
-import { useState } from 'react';
-import MessageLogs from '@/components/MessageLogs';
 import SearchTracker from '@/components/SearchTracker';
-import { ArrowLeft, Coffee } from 'lucide-react';
+import { ArrowLeft } from 'lucide-react';
 import Link from 'next/link';
 
 export default function LogsPage() {
-  const [refreshTrigger] = useState(0);
-
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
@@ -25,10 +21,10 @@ export default function LogsPage() {
               <div className="text-4xl">☕</div>
               <div>
                 <h1 className="text-3xl font-bold text-gray-900">
-                  Message Logs
+                  Logs
                 </h1>
                 <p className="text-sm text-gray-600">
-                  View all sent coffee links
+                  View campaigns, history, and messages
                 </p>
               </div>
             </div>
@@ -37,16 +33,8 @@ export default function LogsPage() {
       </header>
 
       {/* Main Content */}
-      <main className="container mx-auto px-4 py-12 space-y-8">
-        {/* Search Tracker */}
-        <section>
-          <SearchTracker />
-        </section>
-
-        {/* Message Logs */}
-        <section>
-          <MessageLogs refreshTrigger={refreshTrigger} />
-        </section>
+      <main className="container mx-auto px-4 py-12">
+        <SearchTracker />
       </main>
     </div>
   );

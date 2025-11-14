@@ -28,14 +28,16 @@ interface Campaign {
   is_valid: boolean;
   is_expired: boolean;
   notes: string | null;
+  successful_phones?: string[];
 }
 
 export default function SearchTracker() {
   const [searchLogs, setSearchLogs] = useState<SearchLog[]>([]);
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
+  const [messageLogs, setMessageLogs] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<'overview' | 'campaigns'>('overview');
-  const [campaignFilter, setCampaignFilter] = useState<'all' | 'valid' | 'expired'>('all');
+  const [activeTab, setActiveTab] = useState<'campaigns' | 'history' | 'messages'>('campaigns');
+  const [campaignFilter, setCampaignFilter] = useState<'all' | 'valid' | 'expired' | 'invalid'>('valid');
 
   useEffect(() => {
     fetchData();
@@ -44,9 +46,10 @@ export default function SearchTracker() {
   const fetchData = async () => {
     setLoading(true);
     try {
-      const [logsRes, campaignsRes] = await Promise.all([
+      const [logsRes, campaignsRes, messageLogsRes] = await Promise.all([
         fetch('/api/search-logs?limit=10'),
-        fetch('/api/campaigns?limit=50')
+        fetch('/api/campaigns?limit=50&include_phones=true'),
+        fetch('/api/logs?limit=50')
       ]);
 
       if (logsRes.ok) {
@@ -57,6 +60,11 @@ export default function SearchTracker() {
       if (campaignsRes.ok) {
         const campaignsData = await campaignsRes.json();
         setCampaigns(campaignsData.campaigns || []);
+      }
+
+      if (messageLogsRes.ok) {
+        const messageLogsData = await messageLogsRes.json();
+        setMessageLogs(messageLogsData.logs || []);
       }
     } catch (error) {
       console.error('Error fetching data:', error);
@@ -84,10 +92,12 @@ export default function SearchTracker() {
   const lastSearch = searchLogs[0];
   const validCampaigns = campaigns.filter(c => c.is_valid && !c.is_expired);
   const expiredCampaigns = campaigns.filter(c => c.is_expired);
+  const invalidCampaigns = campaigns.filter(c => !c.is_valid && !c.is_expired);
 
   const filteredCampaigns = campaigns.filter(c => {
     if (campaignFilter === 'valid') return c.is_valid && !c.is_expired;
     if (campaignFilter === 'expired') return c.is_expired;
+    if (campaignFilter === 'invalid') return !c.is_valid && !c.is_expired;
     return true;
   });
 
@@ -102,30 +112,53 @@ export default function SearchTracker() {
     );
   }
 
+  const getStatusIcon = (status: string) => {
+    switch (status) {
+      case 'success':
+        return '✅';
+      case 'failed':
+        return '❌';
+      case 'expired':
+        return '⏰';
+      case 'invalid':
+        return '⚠️';
+      default:
+        return null;
+    }
+  };
+
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case 'success':
+        return 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400';
+      case 'failed':
+        return 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400';
+      case 'expired':
+        return 'bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-400';
+      case 'invalid':
+        return 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400';
+      default:
+        return 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300';
+    }
+  };
+
+  const formatDate = (dateString: string) => {
+    const date = new Date(dateString);
+    return new Intl.DateTimeFormat('en-US', {
+      month: 'short',
+      day: 'numeric',
+      hour: 'numeric',
+      minute: '2-digit',
+      hour12: true,
+    }).format(date);
+  };
+
   return (
     <div className="bg-white dark:bg-gray-800 rounded-lg shadow">
-      <div className="p-6 border-b border-gray-200 dark:border-gray-700">
-        <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
-          Reddit Search Tracker
-        </h2>
-        <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-          Monitor automated searches and discovered campaigns
-        </p>
-      </div>
 
       {/* Tabs */}
       <div className="border-b border-gray-200 dark:border-gray-700">
         <nav className="flex -mb-px">
-          <button
-            onClick={() => setActiveTab('overview')}
-            className={`px-6 py-3 text-sm font-medium border-b-2 ${
-              activeTab === 'overview'
-                ? 'border-blue-500 text-blue-600 dark:text-blue-400'
-                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-300'
-            }`}
-          >
-            Overview
-          </button>
           <button
             onClick={() => setActiveTab('campaigns')}
             className={`px-6 py-3 text-sm font-medium border-b-2 ${
@@ -136,11 +169,31 @@ export default function SearchTracker() {
           >
             Campaigns ({campaigns.length})
           </button>
+          <button
+            onClick={() => setActiveTab('history')}
+            className={`px-6 py-3 text-sm font-medium border-b-2 ${
+              activeTab === 'history'
+                ? 'border-blue-500 text-blue-600 dark:text-blue-400'
+                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-300'
+            }`}
+          >
+            History
+          </button>
+          <button
+            onClick={() => setActiveTab('messages')}
+            className={`px-6 py-3 text-sm font-medium border-b-2 ${
+              activeTab === 'messages'
+                ? 'border-blue-500 text-blue-600 dark:text-blue-400'
+                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-300'
+            }`}
+          >
+            Messages ({messageLogs.length})
+          </button>
         </nav>
       </div>
 
       <div className="p-6">
-        {activeTab === 'overview' && (
+        {activeTab === 'history' && (
           <div className="space-y-6">
             {/* Last Search Summary */}
             <div className="bg-gray-50 dark:bg-gray-900 rounded-lg p-4">
@@ -266,16 +319,6 @@ export default function SearchTracker() {
             {/* Filter Buttons */}
             <div className="flex gap-2">
               <button
-                onClick={() => setCampaignFilter('all')}
-                className={`px-4 py-2 text-sm font-medium rounded-lg ${
-                  campaignFilter === 'all'
-                    ? 'bg-blue-600 text-white'
-                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600'
-                }`}
-              >
-                All ({campaigns.length})
-              </button>
-              <button
                 onClick={() => setCampaignFilter('valid')}
                 className={`px-4 py-2 text-sm font-medium rounded-lg ${
                   campaignFilter === 'valid'
@@ -286,6 +329,16 @@ export default function SearchTracker() {
                 Valid ({validCampaigns.length})
               </button>
               <button
+                onClick={() => setCampaignFilter('all')}
+                className={`px-4 py-2 text-sm font-medium rounded-lg ${
+                  campaignFilter === 'all'
+                    ? 'bg-blue-600 text-white'
+                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600'
+                }`}
+              >
+                All ({campaigns.length})
+              </button>
+              <button
                 onClick={() => setCampaignFilter('expired')}
                 className={`px-4 py-2 text-sm font-medium rounded-lg ${
                   campaignFilter === 'expired'
@@ -294,6 +347,16 @@ export default function SearchTracker() {
                 }`}
               >
                 Expired ({expiredCampaigns.length})
+              </button>
+              <button
+                onClick={() => setCampaignFilter('invalid')}
+                className={`px-4 py-2 text-sm font-medium rounded-lg ${
+                  campaignFilter === 'invalid'
+                    ? 'bg-red-600 text-white'
+                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600'
+                }`}
+              >
+                Invalid ({invalidCampaigns.length})
               </button>
             </div>
 
@@ -344,6 +407,17 @@ export default function SearchTracker() {
                             <span className="font-medium">First seen:</span>{' '}
                             {formatTimeAgo(campaign.first_seen_at)}
                           </div>
+                          <div>
+                            <span className="font-medium">Link:</span>{' '}
+                            <a
+                              href={campaign.full_link}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-blue-600 dark:text-blue-400 hover:underline"
+                            >
+                              Open campaign →
+                            </a>
+                          </div>
                           {campaign.reddit_subreddit && (
                             <div>
                               <span className="font-medium">Found in:</span> r/{campaign.reddit_subreddit}
@@ -359,6 +433,26 @@ export default function SearchTracker() {
                               )}
                             </div>
                           )}
+                          {campaign.successful_phones && campaign.successful_phones.length > 0 && (
+                            <div>
+                              <span className="font-medium">Successfully sent to ({campaign.successful_phones.length}):</span>
+                              <div className="flex flex-wrap gap-1 mt-1">
+                                {campaign.successful_phones.map((phone, idx) => (
+                                  <span
+                                    key={idx}
+                                    className="inline-block px-2 py-0.5 text-xs bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400 rounded"
+                                  >
+                                    {phone}
+                                  </span>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+                          {campaign.successful_phones && campaign.successful_phones.length === 0 && (
+                            <div className="text-xs text-gray-500 dark:text-gray-400">
+                              Not yet sent to any phones
+                            </div>
+                          )}
                         </div>
                       </div>
                     </div>
@@ -370,6 +464,54 @@ export default function SearchTracker() {
                 </p>
               )}
             </div>
+          </div>
+        )}
+
+        {activeTab === 'messages' && (
+          <div className="space-y-3">
+            {messageLogs.length > 0 ? (
+              messageLogs.map((log) => (
+                <div
+                  key={log.id}
+                  className="p-4 bg-gray-50 dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-700 hover:bg-gray-100 dark:hover:bg-gray-800 transition"
+                >
+                  <div className="flex items-start justify-between gap-4">
+                    <div className="flex items-start gap-3 flex-1">
+                      <div className="text-2xl">
+                        {getStatusIcon(log.status)}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 mb-1">
+                          <span className="font-semibold text-gray-900 dark:text-white">
+                            {log.phone_number.slice(-4).padStart(log.phone_number.length, '*')}
+                          </span>
+                          <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${getStatusColor(log.status)}`}>
+                            {log.status}
+                          </span>
+                        </div>
+                        <div className="text-sm text-gray-600 dark:text-gray-400 mb-1">
+                          <span className="font-medium">Campaign:</span> <span className="font-mono">{log.campaign_id}</span>
+                          <span className="mx-2">•</span>
+                          <span className="font-medium">Channel:</span> <span className="font-mono">{log.marketing_channel}</span>
+                        </div>
+                        {log.error_message && (
+                          <div className="text-sm text-red-700 dark:text-red-400 mt-1">
+                            Error: {log.error_message}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                    <div className="text-xs text-gray-500 dark:text-gray-400 whitespace-nowrap">
+                      {formatDate(log.created_at)}
+                    </div>
+                  </div>
+                </div>
+              ))
+            ) : (
+              <p className="text-sm text-gray-500 dark:text-gray-400 text-center py-8">
+                No messages sent yet
+              </p>
+            )}
           </div>
         )}
       </div>

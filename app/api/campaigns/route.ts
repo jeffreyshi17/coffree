@@ -28,6 +28,7 @@ export async function GET(request: NextRequest) {
     const source = searchParams.get('source'); // 'auto' or 'manual'
     const isValid = searchParams.get('is_valid');
     const isExpired = searchParams.get('is_expired');
+    const includePhones = searchParams.get('include_phones') === 'true';
 
     const supabase = createClient(supabaseUrl, supabaseKey);
 
@@ -57,9 +58,47 @@ export async function GET(request: NextRequest) {
       }, { status: 500 });
     }
 
+    // If includePhones is true, fetch successful phone numbers for each campaign
+    let campaignsWithPhones = data || [];
+    if (includePhones && data) {
+      const campaignIds = data.map(c => c.campaign_id);
+
+      // Fetch all successful message logs for these campaigns
+      const { data: logs } = await supabase
+        .from('message_logs')
+        .select('campaign_id, phone_number')
+        .in('campaign_id', campaignIds)
+        .eq('status', 'success');
+
+      // Function to censor phone number (show only last 4 digits)
+      const censorPhone = (phone: string): string => {
+        const cleaned = phone.replace(/\D/g, '');
+        if (cleaned.length >= 4) {
+          const last4 = cleaned.slice(-4);
+          return `***${last4}`;
+        }
+        return '****';
+      };
+
+      // Group phones by campaign_id and censor them
+      const phonesByCampaign: Record<string, string[]> = {};
+      logs?.forEach(log => {
+        if (!phonesByCampaign[log.campaign_id]) {
+          phonesByCampaign[log.campaign_id] = [];
+        }
+        phonesByCampaign[log.campaign_id].push(censorPhone(log.phone_number));
+      });
+
+      // Add censored phones to each campaign
+      campaignsWithPhones = data.map(campaign => ({
+        ...campaign,
+        successful_phones: phonesByCampaign[campaign.campaign_id] || []
+      }));
+    }
+
     return NextResponse.json({
-      campaigns: data || [],
-      count: data?.length || 0
+      campaigns: campaignsWithPhones,
+      count: campaignsWithPhones.length || 0
     });
   } catch (error) {
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });

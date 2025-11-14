@@ -103,6 +103,9 @@ async function sendCoffeeToPhone(
   marketingChannel: string
 ): Promise<{ success: boolean; error?: string }> {
   try {
+    // Map 'apple' to 'iOS' for Capital One API
+    const apiPlatform = platform === 'apple' ? 'iOS' : 'android';
+
     const response = await fetch('https://api.capitalone.com/protected/24565/retail/digital-offers/text-pass', {
       method: 'POST',
       headers: {
@@ -113,7 +116,7 @@ async function sendCoffeeToPhone(
       body: JSON.stringify({
         campaignId,
         marketingChannel,
-        platform,
+        platform: apiPlatform,
         phoneNumber: phone,
       }),
     });

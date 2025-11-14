@@ -52,7 +52,7 @@ class CoffreeFinder:
 
     def search_reddit(self, subreddit: str, timeframe: str = 'month') -> List[Dict]:
         """
-        Search a subreddit for coffree links
+        Search a subreddit for coffree links in posts and comments
 
         Args:
             subreddit: Name of the subreddit
@@ -67,7 +67,7 @@ class CoffreeFinder:
             # Get the subreddit
             sub = self.reddit.subreddit(subreddit)
 
-            # Search for coffree links
+            # Search for coffree links in posts
             results = sub.search(
                 query='coffree.capitalone.com',
                 time_filter=timeframe,
@@ -77,6 +77,7 @@ class CoffreeFinder:
 
             # Convert PRAW submission objects to dictionaries
             posts = []
+            posts_from_search = set()
             for submission in results:
                 posts.append({
                     'title': submission.title,
@@ -87,6 +88,46 @@ class CoffreeFinder:
                     'id': submission.id,
                     'author': str(submission.author) if submission.author else '[deleted]',
                 })
+                posts_from_search.add(submission.id)
+
+            # Also search broader terms to catch posts where link is only in comments
+            broader_results = sub.search(
+                query='capital one coffee OR capitalone coffee OR coffree',
+                time_filter=timeframe,
+                limit=100,
+                sort='new'
+            )
+
+            # Check comments on these posts for coffree links
+            for submission in broader_results:
+                # Skip if we already got this from the direct search
+                if submission.id in posts_from_search:
+                    continue
+
+                try:
+                    # Load comments (limit to avoid rate limiting)
+                    submission.comments.replace_more(limit=0)
+
+                    # Check if any comment contains coffree link
+                    has_coffree_link = False
+                    for comment in submission.comments.list()[:50]:  # Check first 50 comments
+                        if 'coffree.capitalone.com' in comment.body:
+                            has_coffree_link = True
+                            break
+
+                    if has_coffree_link:
+                        posts.append({
+                            'title': submission.title,
+                            'selftext': submission.selftext,
+                            'url': submission.url,
+                            'permalink': submission.permalink,
+                            'created_utc': submission.created_utc,
+                            'id': submission.id,
+                            'author': str(submission.author) if submission.author else '[deleted]',
+                        })
+                except Exception as comment_error:
+                    # Skip posts where we can't load comments
+                    continue
 
             print(f"   Found {len(posts)} posts")
             return posts
