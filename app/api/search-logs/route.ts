@@ -15,6 +15,7 @@ export async function POST(request: NextRequest) {
       status,
       campaigns_found = 0,
       new_campaigns = 0,
+      campaign_ids = [],
       subreddits_searched = [],
       error_message = null,
     } = body;
@@ -38,6 +39,7 @@ export async function POST(request: NextRequest) {
       status,
       campaigns_found,
       new_campaigns,
+      campaign_ids,
       subreddits_searched,
       error_message,
       started_at: now,
@@ -101,9 +103,29 @@ export async function GET(request: NextRequest) {
       }, { status: 500 });
     }
 
+    // Enrich logs with campaign details
+    const enrichedLogs = await Promise.all((data || []).map(async (log) => {
+      if (log.campaign_ids && log.campaign_ids.length > 0) {
+        // Fetch campaign details for this log
+        const { data: campaigns } = await supabase
+          .from('campaigns')
+          .select('campaign_id, marketing_channel, full_link, is_valid, is_expired')
+          .in('campaign_id', log.campaign_ids);
+
+        return {
+          ...log,
+          campaigns: campaigns || []
+        };
+      }
+      return {
+        ...log,
+        campaigns: []
+      };
+    }));
+
     return NextResponse.json({
-      logs: data || [],
-      count: data?.length || 0
+      logs: enrichedLogs,
+      count: enrichedLogs.length || 0
     });
   } catch (error) {
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });

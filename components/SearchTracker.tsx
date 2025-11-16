@@ -301,6 +301,35 @@ export default function SearchTracker() {
                           {log.campaigns_found} campaigns found
                           {log.new_campaigns > 0 && ` (${log.new_campaigns} new)`}
                         </div>
+                        {log.campaigns && log.campaigns.length > 0 && (
+                          <div className="mt-2 space-y-1">
+                            {log.campaigns.map((campaign: any) => (
+                              <div key={campaign.campaign_id} className="text-xs">
+                                <a
+                                  href={campaign.full_link}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="text-blue-600 dark:text-blue-400 hover:underline"
+                                >
+                                  {campaign.campaign_id}
+                                </a>
+                                <span className="text-gray-500 dark:text-gray-400 ml-2">
+                                  ({campaign.marketing_channel})
+                                </span>
+                                {campaign.is_expired && (
+                                  <span className="ml-2 text-orange-600 dark:text-orange-400">
+                                    Expired
+                                  </span>
+                                )}
+                                {!campaign.is_valid && (
+                                  <span className="ml-2 text-red-600 dark:text-red-400">
+                                    Invalid
+                                  </span>
+                                )}
+                              </div>
+                            ))}
+                          </div>
+                        )}
                       </div>
                     </div>
                   ))

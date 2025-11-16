@@ -257,7 +257,7 @@ class CoffreeFinder:
             print(f"   ❌ Submission failed: {e}")
             return False
 
-    def log_search(self, status: str, campaigns_found: int, new_campaigns: int, error: str = None):
+    def log_search(self, status: str, campaigns_found: int, new_campaigns: int, campaign_ids: list = None, error: str = None):
         """Log the search activity to the database"""
         try:
             response = requests.post(
@@ -267,6 +267,7 @@ class CoffreeFinder:
                     'status': status,
                     'campaigns_found': campaigns_found,
                     'new_campaigns': new_campaigns,
+                    'campaign_ids': campaign_ids or [],
                     'subreddits_searched': SUBREDDITS,
                     'error_message': error
                 },
@@ -277,8 +278,15 @@ class CoffreeFinder:
             print(f"⚠️  Failed to log search: {e}")
             return False
 
-    def record_campaign(self, link: str, reddit_post_url: str = None, reddit_subreddit: str = None) -> bool:
-        """Record a campaign in the database"""
+    def record_campaign(self, link: str, reddit_post_url: str = None, reddit_subreddit: str = None) -> tuple[bool, bool]:
+        """
+        Record a campaign in the database
+
+        Returns:
+            Tuple of (success, is_new) where:
+            - success: True if campaign was recorded or already exists
+            - is_new: True if this is a newly created campaign
+        """
         try:
             response = requests.post(
                 f"{API_BASE_URL}/api/campaigns",
@@ -290,13 +298,28 @@ class CoffreeFinder:
                 },
                 timeout=10
             )
-            return response.ok
+
+            if response.ok:
+                result = response.json()
+                # Check if the campaign was newly created or already existed
+                is_new = result.get('created', False)
+                return (True, is_new)
+            else:
+                # Check if it's a duplicate error (campaign already exists)
+                try:
+                    error_data = response.json()
+                    if 'already exists' in error_data.get('error', '').lower():
+                        return (True, False)  # Success but not new
+                except:
+                    pass
+                return (False, False)
+
         except Exception as e:
             # Campaign might already exist, which is fine
             if 'already exists' in str(e).lower():
-                return True
+                return (True, False)
             print(f"⚠️  Failed to record campaign: {e}")
-            return False
+            return (False, False)
 
     def run(self, timeframe: str = 'month', auto_submit: bool = False):
         """
@@ -372,6 +395,7 @@ class CoffreeFinder:
         print(f"{'='*80}\n")
 
         recorded_count = 0
+        new_campaigns_count = 0
         for link in all_unique_links:
             campaign_id = self.parse_campaign_id(link)
 
@@ -384,13 +408,18 @@ class CoffreeFinder:
                     reddit_subreddit = post_info['subreddit']
                     break
 
-            if self.record_campaign(link, reddit_post_url, reddit_subreddit):
-                print(f"✅ Recorded Campaign ID: {campaign_id}")
+            success, is_new = self.record_campaign(link, reddit_post_url, reddit_subreddit)
+            if success:
+                if is_new:
+                    print(f"✅ Recorded NEW Campaign ID: {campaign_id}")
+                    new_campaigns_count += 1
+                else:
+                    print(f"ℹ️  Campaign ID already exists: {campaign_id}")
                 recorded_count += 1
             else:
                 print(f"⚠️  Could not record Campaign ID: {campaign_id}")
 
-        print(f"\nRecorded {recorded_count}/{len(all_unique_links)} campaigns\n")
+        print(f"\nRecorded {recorded_count}/{len(all_unique_links)} campaigns ({new_campaigns_count} new)\n")
 
         # Now process submissions if auto_submit is enabled
         submitted_count = 0
@@ -433,10 +462,16 @@ class CoffreeFinder:
         duration = int(time_module.time() - start_time)
         print(f"\n⏱️  Search completed in {duration} seconds")
         print(f"📊 Logging search activity...")
+
+        # Extract campaign IDs from all unique links
+        campaign_ids = [self.parse_campaign_id(link) for link in all_unique_links]
+        campaign_ids = [cid for cid in campaign_ids if cid]  # Filter out None values
+
         self.log_search(
             status='success',
             campaigns_found=len(all_unique_links),
-            new_campaigns=submitted_count if auto_submit else 0
+            new_campaigns=new_campaigns_count,
+            campaign_ids=campaign_ids
         )
 
 

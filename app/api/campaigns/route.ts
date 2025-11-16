@@ -182,6 +182,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({
       success: true,
       campaign: data,
+      created: true,
       message: 'Campaign added successfully'
     });
   } catch (error) {
