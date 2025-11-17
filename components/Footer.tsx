@@ -10,7 +10,6 @@ export default function Footer() {
     { href: '/', label: 'Home' },
     { href: '/submit', label: 'Submit a Link' },
     { href: '/unsubscribe', label: 'Unsubscribe' },
-    { href: '/logs', label: 'Logs' },
   ];
 
   return (

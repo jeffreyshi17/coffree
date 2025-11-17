@@ -545,17 +545,6 @@ export default function SearchTracker() {
           </div>
         )}
       </div>
-
-      {/* Refresh Button */}
-      <div className="p-6 border-t border-gray-200 dark:border-gray-700">
-        <button
-          onClick={fetchData}
-          disabled={loading}
-          className="w-full px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors text-sm font-medium"
-        >
-          {loading ? 'Loading...' : 'Refresh Data'}
-        </button>
-      </div>
     </div>
   );
 }
