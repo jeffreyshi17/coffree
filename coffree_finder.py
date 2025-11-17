@@ -12,10 +12,20 @@ import os
 from urllib.parse import urlparse, parse_qs
 import html
 import praw
+import sys
+import logging
 from dotenv import load_dotenv
 
 # Load environment variables from .env file
 load_dotenv()
+
+# Set up logging
+logging.basicConfig(
+    level=logging.DEBUG,
+    format='%(asctime)s - %(levelname)s - %(message)s',
+    datefmt='%Y-%m-%d %H:%M:%S'
+)
+logger = logging.getLogger(__name__)
 
 # Configuration
 # Only subreddits that have shown coffree links in the past year
@@ -36,19 +46,46 @@ COFFREE_PATTERN = r'https?://coffree\.capitalone\.com/sms/\?[^"\s<>]+'
 
 class CoffreeFinder:
     def __init__(self):
+        logger.info("Initializing CoffreeFinder...")
+
         self.session = requests.Session()
         self.session.headers.update({
             'User-Agent': 'CoffreeFinder/1.0 (Coffee Link Aggregator)'
         })
         self.found_links: Set[str] = set()
 
+        # Check for Reddit credentials
+        client_id = os.getenv('REDDIT_CLIENT_ID', '')
+        client_secret = os.getenv('REDDIT_CLIENT_SECRET', '')
+
+        logger.debug(f"Reddit Client ID present: {bool(client_id and client_id != '_your_client_id_here_')}")
+        logger.debug(f"Reddit Client Secret present: {bool(client_secret and client_secret != '_your_client_secret_here_')}")
+
+        if not client_id or client_id == '_your_client_id_here_':
+            logger.error("❌ REDDIT_CLIENT_ID is missing or invalid!")
+            logger.error("Please set the REDDIT_CLIENT_ID environment variable or secret in GitHub Actions")
+            sys.exit(1)
+
+        if not client_secret or client_secret == '_your_client_secret_here_':
+            logger.error("❌ REDDIT_CLIENT_SECRET is missing or invalid!")
+            logger.error("Please set the REDDIT_CLIENT_SECRET environment variable or secret in GitHub Actions")
+            sys.exit(1)
+
         # Initialize Reddit instance with read-only access
-        # These credentials allow read-only access without user authentication
-        self.reddit = praw.Reddit(
-            client_id=os.getenv('REDDIT_CLIENT_ID', '_your_client_id_here_'),
-            client_secret=os.getenv('REDDIT_CLIENT_SECRET', '_your_client_secret_here_'),
-            user_agent='CoffreeFinder/1.0 (Coffee Link Aggregator)'
-        )
+        logger.info("Initializing Reddit API connection...")
+        try:
+            self.reddit = praw.Reddit(
+                client_id=client_id,
+                client_secret=client_secret,
+                user_agent='CoffreeFinder/1.0 (Coffee Link Aggregator)'
+            )
+            # Test the connection by making a simple API call
+            self.reddit.user.me()
+            logger.info("✅ Reddit API connection successful (read-only mode)")
+        except Exception as e:
+            logger.error(f"❌ Failed to connect to Reddit API: {e}")
+            logger.error("This usually means your credentials are invalid or expired")
+            sys.exit(1)
 
     def search_reddit(self, subreddit: str, timeframe: str = 'month') -> List[Dict]:
         """
@@ -62,12 +99,15 @@ class CoffreeFinder:
             List of post data dictionaries
         """
         try:
+            logger.info(f"🔍 Searching r/{subreddit}...")
             print(f"🔍 Searching r/{subreddit}...")
 
             # Get the subreddit
+            logger.debug(f"Getting subreddit object for r/{subreddit}")
             sub = self.reddit.subreddit(subreddit)
 
             # Search for coffree links in posts
+            logger.debug(f"Searching for 'coffree.capitalone.com' in r/{subreddit} (timeframe: {timeframe})")
             results = sub.search(
                 query='coffree.capitalone.com',
                 time_filter=timeframe,
@@ -78,6 +118,7 @@ class CoffreeFinder:
             # Convert PRAW submission objects to dictionaries
             posts = []
             posts_from_search = set()
+            logger.debug("Processing search results...")
             for submission in results:
                 posts.append({
                     'title': submission.title,
@@ -90,7 +131,10 @@ class CoffreeFinder:
                 })
                 posts_from_search.add(submission.id)
 
+            logger.debug(f"Found {len(posts)} posts from direct search")
+
             # Also search broader terms to catch posts where link is only in comments
+            logger.debug("Searching for broader terms to catch posts with links in comments")
             broader_results = sub.search(
                 query='capital one coffee OR capitalone coffee OR coffree',
                 time_filter=timeframe,
@@ -126,13 +170,16 @@ class CoffreeFinder:
                             'author': str(submission.author) if submission.author else '[deleted]',
                         })
                 except Exception as comment_error:
+                    logger.debug(f"Could not load comments for post {submission.id}: {comment_error}")
                     # Skip posts where we can't load comments
                     continue
 
+            logger.info(f"   Found {len(posts)} posts with coffree links")
             print(f"   Found {len(posts)} posts")
             return posts
 
         except Exception as e:
+            logger.error(f"   ❌ Error searching r/{subreddit}: {e}", exc_info=True)
             print(f"   ❌ Error searching r/{subreddit}: {e}")
             return []
 
@@ -332,6 +379,15 @@ class CoffreeFinder:
         import time as time_module
         start_time = time_module.time()
 
+        logger.info("="*80)
+        logger.info("Starting Coffree Finder Run")
+        logger.info("="*80)
+        logger.info(f"Timeframe: {timeframe}")
+        logger.info(f"Auto-submit: {'ON' if auto_submit else 'OFF'}")
+        logger.info(f"API Base URL: {API_BASE_URL}")
+        logger.info(f"Subreddits to search: {', '.join(SUBREDDITS)}")
+        logger.info("="*80)
+
         print(f"\n🚀 Coffree Finder Starting...")
         print(f"📅 Timeframe: {timeframe}")
         print(f"🤖 Auto-submit: {'ON' if auto_submit else 'OFF'}")
@@ -339,34 +395,59 @@ class CoffreeFinder:
 
         all_posts = []
         all_unique_links = set()
+        has_errors = False
 
         # Search all subreddits
         for subreddit in SUBREDDITS:
-            posts = self.search_reddit(subreddit, timeframe)
+            try:
+                posts = self.search_reddit(subreddit, timeframe)
 
-            for post in posts:
-                links = self.extract_links_from_post(post)
+                if not posts:
+                    logger.warning(f"No posts found in r/{subreddit}")
+                    has_errors = True  # Mark as having issues if no posts found
 
-                if links:  # Only include posts that have coffree links
-                    all_unique_links.update(links)
-                    all_posts.append({
-                        'subreddit': subreddit,
-                        'title': post.get('title', ''),
-                        'url': f"https://reddit.com{post.get('permalink', '')}",
-                        'created': datetime.fromtimestamp(post.get('created_utc', 0)),
-                        'links': links
-                    })
+                for post in posts:
+                    links = self.extract_links_from_post(post)
 
-            # Be nice to Reddit - rate limit
-            time.sleep(2)
+                    if links:  # Only include posts that have coffree links
+                        logger.debug(f"Found {len(links)} links in post: {post.get('title', '')[:50]}...")
+                        all_unique_links.update(links)
+                        all_posts.append({
+                            'subreddit': subreddit,
+                            'title': post.get('title', ''),
+                            'url': f"https://reddit.com{post.get('permalink', '')}",
+                            'created': datetime.fromtimestamp(post.get('created_utc', 0)),
+                            'links': links
+                        })
+
+                # Be nice to Reddit - rate limit
+                logger.debug(f"Waiting 2 seconds before next subreddit...")
+                time.sleep(2)
+            except Exception as e:
+                logger.error(f"Error processing subreddit r/{subreddit}: {e}", exc_info=True)
+                has_errors = True
 
         # Process found posts
+        logger.info(f"Search complete. Found {len(all_posts)} posts with {len(all_unique_links)} unique links")
         print(f"\n📊 Summary:")
         print(f"   Total posts with coffree links: {len(all_posts)}")
         print(f"   Total unique links found: {len(all_unique_links)}")
 
         if not all_posts:
+            logger.warning("No coffree links found in any subreddit")
             print("\n   No coffree links found.")
+            # Log the failed search
+            self.log_search(
+                status='no_results',
+                campaigns_found=0,
+                new_campaigns=0,
+                campaign_ids=[],
+                error='No coffree links found in any subreddit'
+            )
+            # Exit with error code if we had authentication or other errors
+            if has_errors:
+                logger.error("Exiting with error code due to search failures")
+                sys.exit(1)
             return
 
         print(f"\n{'='*80}")
@@ -447,6 +528,18 @@ class CoffreeFinder:
             skipped_count = len(all_unique_links)
 
         # Final summary
+        logger.info("="*80)
+        logger.info("Final Summary")
+        logger.info("="*80)
+        logger.info(f"Posts found: {len(all_posts)}")
+        logger.info(f"Unique links: {len(all_unique_links)}")
+        if auto_submit:
+            logger.info(f"Successfully submitted: {submitted_count}")
+            logger.info(f"Failed/Duplicates: {failed_count}")
+        else:
+            logger.info(f"Skipped (auto-submit disabled): {skipped_count}")
+        logger.info("="*80)
+
         print(f"\n{'='*80}")
         print("Final Summary:")
         print(f"{'='*80}")
@@ -460,6 +553,7 @@ class CoffreeFinder:
 
         # Log the search activity
         duration = int(time_module.time() - start_time)
+        logger.info(f"Search completed in {duration} seconds")
         print(f"\n⏱️  Search completed in {duration} seconds")
         print(f"📊 Logging search activity...")
 
@@ -467,12 +561,25 @@ class CoffreeFinder:
         campaign_ids = [self.parse_campaign_id(link) for link in all_unique_links]
         campaign_ids = [cid for cid in campaign_ids if cid]  # Filter out None values
 
-        self.log_search(
+        log_success = self.log_search(
             status='success',
             campaigns_found=len(all_unique_links),
             new_campaigns=new_campaigns_count,
             campaign_ids=campaign_ids
         )
+
+        if log_success:
+            logger.info("Successfully logged search activity to database")
+        else:
+            logger.warning("Failed to log search activity to database")
+
+        # Exit with error code if there were any errors during the search
+        if has_errors:
+            logger.error("Exiting with error code due to errors during search")
+            sys.exit(1)
+
+        logger.info("Coffree Finder completed successfully")
+        print("\n✅ Coffree Finder completed successfully!")
 
 
 def main():
