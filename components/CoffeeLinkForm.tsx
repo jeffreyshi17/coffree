@@ -52,17 +52,6 @@ export default function CoffeeLinkForm({ onSendSuccess }: { onSendSuccess: () =>
 
   return (
     <div className="w-full max-w-2xl mx-auto">
-      <div className="bg-white rounded-lg shadow-sm p-8 border border-gray-200">
-        <div className="flex items-center gap-3 mb-6">
-          <div className="p-3 bg-amber-100 rounded-lg">
-            <Coffee className="w-8 h-8 text-amber-700" />
-          </div>
-          <div>
-            <h2 className="text-2xl font-bold text-gray-900">Send Coffee Link</h2>
-            <p className="text-sm text-gray-600">Share free coffee with all subscribers</p>
-          </div>
-        </div>
-
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
             <label htmlFor="link" className="block text-sm font-medium text-gray-700 mb-2">
@@ -125,7 +114,6 @@ export default function CoffeeLinkForm({ onSendSuccess }: { onSendSuccess: () =>
             </div>
           </div>
         )}
-      </div>
     </div>
   );
 }

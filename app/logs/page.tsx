@@ -1,41 +1,50 @@
 'use client';
 
 import SearchTracker from '@/components/SearchTracker';
-import { ArrowLeft } from 'lucide-react';
+import { ArrowLeft, Coffee } from 'lucide-react';
 import Link from 'next/link';
+import Footer from '@/components/Footer';
+import PageTransition from '@/components/PageTransition';
 
 export default function LogsPage() {
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <header className="border-b border-gray-200 bg-white sticky top-0 z-10">
-        <div className="container mx-auto px-4 py-6">
-          <div className="flex items-center gap-4">
-            <Link
-              href="/"
-              className="p-2 hover:bg-gray-100 rounded-md transition"
-            >
-              <ArrowLeft className="w-6 h-6 text-gray-600" />
-            </Link>
-            <div className="flex items-center gap-3">
-              <div className="text-4xl">☕</div>
-              <div>
-                <h1 className="text-3xl font-bold text-gray-900">
-                  Logs
-                </h1>
-                <p className="text-sm text-gray-600">
-                  View campaigns, history, and messages
-                </p>
+    <div className="h-screen flex flex-col relative overflow-hidden">
+      {/* Background Image with Blur */}
+      <div
+        className="absolute inset-0 bg-cover bg-center"
+        style={{
+          backgroundImage: 'url(/coffee-bg.png)',
+          filter: 'blur(8px)',
+          transform: 'scale(1.1)',
+        }}
+      />
+      {/* Overlay for better text readability */}
+      <div className="absolute inset-0 bg-white/60" />
+
+      {/* Main Content - Fixed Height with Internal Scrolling */}
+      <PageTransition>
+          <div className="max-w-6xl w-full flex flex-col">
+            {/* Header - Fixed */}
+            <div className="text-center mb-6 flex-shrink-0">
+              <div className="inline-flex items-center justify-center w-16 h-16 bg-blue-100 rounded-full mb-3">
+                <Coffee className="w-8 h-8 text-blue-700" />
               </div>
+              <h1 className="text-3xl font-bold text-gray-900 mb-2">
+                Logs
+              </h1>
+              <p className="text-base text-gray-600">
+                View campaigns, history, and messages
+              </p>
+            </div>
+
+            {/* Logs Content - Scrollable */}
+            <div className="overflow-y-auto max-h-96">
+              <SearchTracker />
             </div>
           </div>
-        </div>
-      </header>
+      </PageTransition>
 
-      {/* Main Content */}
-      <main className="container mx-auto px-4 py-12">
-        <SearchTracker />
-      </main>
+      <Footer />
     </div>
   );
 }

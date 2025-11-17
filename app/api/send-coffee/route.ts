@@ -135,7 +135,7 @@ async function sendCoffeeToPhone(
 
 export async function POST(request: NextRequest) {
   try {
-    const { link } = await request.json();
+    const { link, phoneOverride } = await request.json();
 
     if (!link) {
       return NextResponse.json({ error: 'Link is required' }, { status: 400 });
@@ -193,17 +193,36 @@ export async function POST(request: NextRequest) {
         .eq('campaign_id', parsed.cid);
     }
 
-    // Get all phone numbers from Supabase
-    const { data: phones, error: fetchError } = await supabase
-      .from('phone_numbers')
-      .select('*');
+    // Get phone numbers - either the override or all from Supabase
+    let phones;
+    if (phoneOverride) {
+      // If phoneOverride is provided, find that specific phone in the database
+      const { data: phoneData, error: fetchError } = await supabase
+        .from('phone_numbers')
+        .select('*')
+        .eq('phone', phoneOverride)
+        .single();
 
-    if (fetchError) {
-      return NextResponse.json({ error: 'Failed to fetch phone numbers' }, { status: 500 });
-    }
+      if (fetchError || !phoneData) {
+        return NextResponse.json({ error: 'Phone number not found in database' }, { status: 400 });
+      }
 
-    if (!phones || phones.length === 0) {
-      return NextResponse.json({ error: 'No phone numbers subscribed' }, { status: 400 });
+      phones = [phoneData];
+    } else {
+      // Get all phone numbers from Supabase
+      const { data: allPhones, error: fetchError } = await supabase
+        .from('phone_numbers')
+        .select('*');
+
+      if (fetchError) {
+        return NextResponse.json({ error: 'Failed to fetch phone numbers' }, { status: 500 });
+      }
+
+      if (!allPhones || allPhones.length === 0) {
+        return NextResponse.json({ error: 'No phone numbers subscribed' }, { status: 400 });
+      }
+
+      phones = allPhones;
     }
 
     // Check which phones have already received this campaign successfully
