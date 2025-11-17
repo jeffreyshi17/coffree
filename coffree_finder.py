@@ -403,8 +403,7 @@ class CoffreeFinder:
                 posts = self.search_reddit(subreddit, timeframe)
 
                 if not posts:
-                    logger.warning(f"No posts found in r/{subreddit}")
-                    has_errors = True  # Mark as having issues if no posts found
+                    logger.info(f"No posts found in r/{subreddit} (this is normal)")
 
                 for post in posts:
                     links = self.extract_links_from_post(post)
@@ -434,20 +433,23 @@ class CoffreeFinder:
         print(f"   Total unique links found: {len(all_unique_links)}")
 
         if not all_posts:
-            logger.warning("No coffree links found in any subreddit")
+            logger.info("No coffree links found in any subreddit (this timeframe may not have any)")
             print("\n   No coffree links found.")
-            # Log the failed search
+            # Log the search (no results is not necessarily an error)
             self.log_search(
                 status='no_results',
                 campaigns_found=0,
                 new_campaigns=0,
                 campaign_ids=[],
-                error='No coffree links found in any subreddit'
+                error=None  # Not an error, just no results
             )
-            # Exit with error code if we had authentication or other errors
+            # Only exit with error code if we had actual errors (not just no results)
             if has_errors:
                 logger.error("Exiting with error code due to search failures")
                 sys.exit(1)
+            else:
+                logger.info("Search completed successfully with no results")
+                print("\n✅ Search completed successfully (no results this time)")
             return
 
         print(f"\n{'='*80}")
