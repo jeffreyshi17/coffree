@@ -18,6 +18,9 @@ async function testPhoneWithCapitalOne(
   marketingChannel: string
 ): Promise<{ success: boolean; error?: string }> {
   try {
+    // Map 'apple' to 'iOS' for Capital One API
+    const apiPlatform = platform === 'apple' ? 'iOS' : 'android';
+
     const response = await fetch('https://api.capitalone.com/protected/24565/retail/digital-offers/text-pass', {
       method: 'POST',
       headers: {
@@ -28,7 +31,7 @@ async function testPhoneWithCapitalOne(
       body: JSON.stringify({
         campaignId,
         marketingChannel,
-        platform,
+        platform: apiPlatform,
         phoneNumber: phone,
       }),
     });
@@ -133,10 +136,11 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    // Test the phone with all valid campaigns
-    console.log(`Testing phone ${normalizedPhone} with ${validCampaigns.length} campaigns`);
+    // Send all valid campaigns to the new phone
+    console.log(`Sending ${validCampaigns.length} campaigns to new phone ${normalizedPhone}`);
     let phoneIsValid = false;
-    let testedCampaigns: string[] = [];
+    let sentCampaigns: string[] = [];
+    let failedCampaigns: string[] = [];
 
     for (const campaign of validCampaigns) {
       const testResult = await testPhoneWithCapitalOne(
@@ -146,18 +150,17 @@ export async function POST(request: NextRequest) {
         campaign.marketing_channel
       );
 
-      testedCampaigns.push(campaign.campaign_id);
-
       if (testResult.success) {
         phoneIsValid = true;
-        // Log successful test
+        sentCampaigns.push(campaign.campaign_id);
+        // Log successful send
         await supabase.from('message_logs').insert({
           campaign_id: campaign.campaign_id,
           marketing_channel: campaign.marketing_channel,
           link: campaign.full_link,
           phone_number: normalizedPhone,
           status: 'success',
-          error_message: 'Phone validation test',
+          error_message: null,
         });
       } else {
         const errorLower = (testResult.error || '').toLowerCase();
@@ -168,6 +171,7 @@ export async function POST(request: NextRequest) {
             errorLower.includes('campaign')) {
           // Mark this campaign as expired/invalid
           console.log(`Campaign ${campaign.campaign_id} is invalid/expired, updating status`);
+          failedCampaigns.push(campaign.campaign_id);
           await supabase
             .from('campaigns')
             .update({
@@ -181,6 +185,17 @@ export async function POST(request: NextRequest) {
             error: 'Invalid phone number - Capital One rejected it',
             details: testResult.error
           }, { status: 400 });
+        } else {
+          // Other error - log it but continue
+          failedCampaigns.push(campaign.campaign_id);
+          await supabase.from('message_logs').insert({
+            campaign_id: campaign.campaign_id,
+            marketing_channel: campaign.marketing_channel,
+            link: campaign.full_link,
+            phone_number: normalizedPhone,
+            status: 'failed',
+            error_message: testResult.error,
+          });
         }
       }
     }
@@ -205,9 +220,10 @@ export async function POST(request: NextRequest) {
       success: true,
       phone: data,
       message: phoneIsValid
-        ? `Phone validated and added successfully (tested with ${testedCampaigns.length} campaigns)`
-        : `Phone added (couldn't validate with available campaigns)`,
-      testedWith: testedCampaigns
+        ? `Phone added successfully. Sent ${sentCampaigns.length} campaign(s)${failedCampaigns.length > 0 ? `, ${failedCampaigns.length} failed` : ''}`
+        : `Phone added (couldn't send any campaigns)`,
+      sent: sentCampaigns,
+      failed: failedCampaigns
     });
   } catch (error) {
     console.error('Error in POST /api/phone:', error);

@@ -524,7 +524,7 @@ export default function SearchTracker() {
                           <span className="mx-2">•</span>
                           <span className="font-medium">Channel:</span> <span className="font-mono">{log.marketing_channel}</span>
                         </div>
-                        {log.error_message && (
+                        {log.error_message && log.error_message !== 'Phone validation test' && (
                           <div className="text-sm text-red-700 dark:text-red-400 mt-1">
                             Error: {log.error_message}
                           </div>
