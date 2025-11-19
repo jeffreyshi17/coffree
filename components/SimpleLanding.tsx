@@ -74,7 +74,7 @@ export default function SimpleLanding() {
     setSuccess(null);
 
     try {
-      // Add the phone number
+      // Add the phone number - backend will automatically send all campaigns
       const response = await fetch('/api/phone', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -89,39 +89,8 @@ export default function SimpleLanding() {
         return;
       }
 
-      // Get current valid campaigns to send
-      const campaignsResponse = await fetch('/api/campaigns?is_valid=true&is_expired=false');
-
-      if (!campaignsResponse.ok) {
-        setSuccess({ phone, campaignCount: 0 });
-        setPhone('');
-        setLoading(false);
-        return;
-      }
-
-      const campaignsData = await campaignsResponse.json();
-      const validCampaigns = campaignsData.campaigns || [];
-
-      // Send all valid campaigns to the new phone number
-      let sentCount = 0;
-      for (const campaign of validCampaigns) {
-        try {
-          const sendResponse = await fetch('/api/send-coffee', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              link: campaign.full_link,
-              phoneOverride: phone // Send only to this specific phone
-            }),
-          });
-
-          if (sendResponse.ok) {
-            sentCount++;
-          }
-        } catch (err) {
-          console.error(`Failed to send campaign ${campaign.campaign_id}:`, err);
-        }
-      }
+      // Backend returns the number of campaigns sent
+      const sentCount = data.sent ? data.sent.length : 0;
 
       setSuccess({ phone, campaignCount: sentCount });
       setPhone('');
@@ -246,7 +215,7 @@ export default function SimpleLanding() {
                 {loading ? (
                   <>
                     <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                    Processing...
+                    {validCampaignCount > 0 ? 'Sending your free coffee texts...' : 'Adding to the mailing list...'}
                   </>
                 ) : (
                   <>
@@ -271,14 +240,22 @@ export default function SimpleLanding() {
               <div className="mt-5 p-4 bg-green-50 border border-green-200 rounded-lg">
                 <div className="flex items-start gap-3">
                   <CheckCircle2 className="w-5 h-5 text-green-600 flex-shrink-0 mt-0.5" />
-                  <div>
+                  <div className="space-y-2">
                     <p className="text-sm font-medium text-green-900">Success!</p>
-                    <p className="text-sm text-green-700">
-                      {success.campaignCount > 0
-                        ? `${success.campaignCount} coffee voucher${success.campaignCount !== 1 ? 's have' : ' has'} been sent to your phone!`
-                        : 'Phone number added! You\'ll receive vouchers as they become available.'
-                      }
-                    </p>
+                    {success.campaignCount > 0 ? (
+                      <>
+                        <p className="text-sm text-green-700">
+                          You should have received <span className="font-semibold">{success.campaignCount} text message{success.campaignCount !== 1 ? 's' : ''}</span> with free coffee vouchers!
+                        </p>
+                        <p className="text-sm text-green-700">
+                          Check your texts and make sure to add {success.campaignCount !== 1 ? 'them' : 'it'} to your {platform === 'apple' ? 'Apple' : 'Google'} Wallet.
+                        </p>
+                      </>
+                    ) : (
+                      <p className="text-sm text-green-700">
+                        Phone number added! You'll receive vouchers as they become available.
+                      </p>
+                    )}
                   </div>
                 </div>
               </div>
