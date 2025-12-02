@@ -129,29 +129,25 @@ export default function SimpleLanding() {
             <h1 className="text-4xl font-bold text-gray-900 mb-3">
               Coffree
             </h1>
-            {loadingCount ? (
-              <div className="h-6 w-64 bg-gray-200 rounded animate-pulse mx-auto" />
-            ) : (
-              <p className="text-lg text-gray-600">
-                Add your phone number to receive{' '}
-                <span className="font-bold text-amber-700">
-                  <AnimatePresence mode="wait">
-                    <motion.span
-                      key={displayCount}
-                      initial={{ y: 20, opacity: 0 }}
-                      animate={{ y: 0, opacity: 1 }}
-                      exit={{ y: -20, opacity: 0 }}
-                      transition={{ duration: 0.2 }}
-                      className="inline-block"
-                    >
-                      {displayCount}
-                    </motion.span>
-                  </AnimatePresence>
-                  {' '}free Capital One drink voucher{displayCount !== 1 ? 's' : ''}
-                </span>
-                {' '}now and join the mailing list
-              </p>
-            )}
+            <p className="text-lg text-gray-600">
+              Add your phone number to receive{' '}
+              <span className="font-bold text-amber-700">
+                <AnimatePresence mode="wait">
+                  <motion.span
+                    key={loadingCount ? 'loading' : displayCount}
+                    initial={{ y: 20, opacity: 0 }}
+                    animate={{ y: 0, opacity: 1 }}
+                    exit={{ y: -20, opacity: 0 }}
+                    transition={{ duration: 0.2 }}
+                    className="inline-block"
+                  >
+                    {loadingCount ? '...' : displayCount}
+                  </motion.span>
+                </AnimatePresence>
+                {' '}free Capital One drink voucher{displayCount !== 1 ? 's' : ''}
+              </span>
+              {' '}now and join the mailing list
+            </p>
           </div>
 
           {/* Form Card */}
@@ -272,13 +268,21 @@ export default function SimpleLanding() {
           </div>
 
           {/* Distributed Count Stat */}
-          {!loadingCount && distributedCount > 0 && (
-            <div className="mt-4 text-center">
-              <p className="text-sm text-gray-500">
-                <span className="font-semibold text-amber-700">{distributedCount.toLocaleString()}</span> free coffee{distributedCount !== 1 ? 's' : ''} distributed so far
-              </p>
-            </div>
-          )}
+          <AnimatePresence>
+            {!loadingCount && distributedCount > 0 && (
+              <motion.div
+                initial={{ y: 20, opacity: 0 }}
+                animate={{ y: 0, opacity: 1 }}
+                exit={{ y: 20, opacity: 0 }}
+                transition={{ duration: 0.4, delay: 0.2 }}
+                className="mt-4 text-center"
+              >
+                <p className="text-sm text-gray-500">
+                  <span className="font-semibold text-amber-700">{distributedCount.toLocaleString()}</span> free coffee{distributedCount !== 1 ? 's' : ''} distributed so far
+                </p>
+              </motion.div>
+            )}
+          </AnimatePresence>
         </div>
       </PageTransition>
 
