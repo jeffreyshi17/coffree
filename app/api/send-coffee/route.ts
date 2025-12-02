@@ -36,9 +36,16 @@ function parseCoffeeLink(url: string): CoffeeLink | null {
     }
 
     const cid = urlObj.searchParams.get('cid');
-    const mc = urlObj.searchParams.get('mc');
+    let mc = urlObj.searchParams.get('mc');
 
     if (!cid || !mc) {
+      return null;
+    }
+
+    // Sanitize marketing channel to only contain letters (removes trailing ) or other invalid chars)
+    mc = mc.replace(/[^a-zA-Z]/g, '');
+
+    if (!mc) {
       return null;
     }
 
@@ -48,89 +55,117 @@ function parseCoffeeLink(url: string): CoffeeLink | null {
   }
 }
 
-async function validateCampaign(campaignId: string, marketingChannel: string): Promise<{ valid: boolean; error?: string }> {
-  try {
-    // Test the campaign with a dummy phone number
-    const response = await fetch('https://api.capitalone.com/protected/24565/retail/digital-offers/text-pass', {
-      method: 'POST',
-      headers: {
-        'accept': 'application/json; v=1',
-        'content-type': 'application/json',
-      },
-      body: JSON.stringify({
-        campaignId: campaignId,
-        marketingChannel: marketingChannel,
-        platform: 'android',
-        phoneNumber: '0000000000', // Dummy number for validation
-      }),
-    });
+async function sleep(ms: number): Promise<void> {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
 
-    const data = await response.json();
+async function validateCampaign(
+  campaignId: string,
+  marketingChannel: string,
+  maxRetries: number = 3,
+  retryDelayMs: number = 2000
+): Promise<{ valid: boolean; error?: string }> {
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    try {
+      // Test the campaign with a dummy phone number
+      const response = await fetch('https://api.capitalone.com/protected/24565/retail/digital-offers/text-pass', {
+        method: 'POST',
+        headers: {
+          'accept': 'application/json; v=1',
+          'content-type': 'application/json',
+        },
+        body: JSON.stringify({
+          campaignId: campaignId,
+          marketingChannel: marketingChannel,
+          platform: 'android',
+          phoneNumber: '0000000000', // Dummy number for validation
+        }),
+      });
 
-    // Check for specific error responses that indicate campaign issues
-    if (data.id === 107 || data.developerText?.toLowerCase().includes('invalid campaign')) {
-      return { valid: false, error: 'Invalid Campaign Id' };
+      const data = await response.json();
+
+      // Check for specific error responses that indicate campaign issues
+      if (data.id === 107 || data.developerText?.toLowerCase().includes('invalid campaign')) {
+        return { valid: false, error: 'Invalid Campaign Id' };
+      }
+
+      if (data.id === 108 || data.developerText?.toLowerCase().includes('expired')) {
+        return { valid: false, error: 'Campaign Expired' };
+      }
+
+      // If we get a 200 status, campaign is valid
+      if (response.ok || response.status === 200) {
+        return { valid: true };
+      }
+
+      // If error mentions phone number specifically, it means campaign is valid but phone is bad
+      if (data.developerText && (
+        data.developerText.toLowerCase().includes('phone') ||
+        data.developerText.toLowerCase().includes('number')
+      )) {
+        return { valid: true };
+      }
+
+      // For any other error, treat as potentially invalid campaign
+      return { valid: false, error: data.developerText || 'Unknown error validating campaign' };
+    } catch (error) {
+      // Network error - retry with delay if we have attempts left
+      if (attempt < maxRetries) {
+        await sleep(retryDelayMs);
+        continue;
+      }
+      return { valid: false, error: 'Failed to validate campaign' };
     }
-
-    if (data.id === 108 || data.developerText?.toLowerCase().includes('expired')) {
-      return { valid: false, error: 'Campaign Expired' };
-    }
-
-    // If we get a 200 status, campaign is valid
-    if (response.ok || response.status === 200) {
-      return { valid: true };
-    }
-
-    // If error mentions phone number specifically, it means campaign is valid but phone is bad
-    if (data.developerText && (
-      data.developerText.toLowerCase().includes('phone') ||
-      data.developerText.toLowerCase().includes('number')
-    )) {
-      return { valid: true };
-    }
-
-    // For any other error, treat as potentially invalid campaign
-    return { valid: false, error: data.developerText || 'Unknown error validating campaign' };
-  } catch (error) {
-    return { valid: false, error: 'Failed to validate campaign' };
   }
+
+  return { valid: false, error: 'Failed to validate campaign' };
 }
 
 async function sendCoffeeToPhone(
   phone: string,
   platform: 'android' | 'apple',
   campaignId: string,
-  marketingChannel: string
+  marketingChannel: string,
+  maxRetries: number = 3,
+  retryDelayMs: number = 2000
 ): Promise<{ success: boolean; error?: string }> {
-  try {
-    // Map 'apple' to 'iOS' for Capital One API
-    const apiPlatform = platform === 'apple' ? 'iOS' : 'android';
+  const apiPlatform = platform === 'apple' ? 'iOS' : 'android';
 
-    const response = await fetch('https://api.capitalone.com/protected/24565/retail/digital-offers/text-pass', {
-      method: 'POST',
-      headers: {
-        'accept': 'application/json; v=1',
-        'accept-language': 'en-US,en;q=0.9',
-        'content-type': 'application/json',
-      },
-      body: JSON.stringify({
-        campaignId,
-        marketingChannel,
-        platform: apiPlatform,
-        phoneNumber: phone,
-      }),
-    });
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    try {
+      const response = await fetch('https://api.capitalone.com/protected/24565/retail/digital-offers/text-pass', {
+        method: 'POST',
+        headers: {
+          'accept': 'application/json; v=1',
+          'accept-language': 'en-US,en;q=0.9',
+          'content-type': 'application/json',
+        },
+        body: JSON.stringify({
+          campaignId,
+          marketingChannel,
+          platform: apiPlatform,
+          phoneNumber: phone,
+        }),
+      });
 
-    const data = await response.json();
+      const data = await response.json();
 
-    if (response.status === 200 || response.ok) {
-      return { success: true };
+      if (response.status === 200 || response.ok) {
+        return { success: true };
+      }
+
+      return { success: false, error: data.developerText || 'Failed to send' };
+    } catch (error) {
+      // Network error - retry with delay if we have attempts left
+      if (attempt < maxRetries) {
+        await sleep(retryDelayMs);
+        continue;
+      }
+      return { success: false, error: 'Network error' };
     }
-
-    return { success: false, error: data.developerText || 'Failed to send' };
-  } catch (error) {
-    return { success: false, error: 'Network error' };
   }
+
+  return { success: false, error: 'Network error' };
 }
 
 export async function POST(request: NextRequest) {

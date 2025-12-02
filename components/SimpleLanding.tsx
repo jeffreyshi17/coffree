@@ -14,6 +14,7 @@ export default function SimpleLanding() {
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<{ phone: string; campaignCount: number } | null>(null);
   const [validCampaignCount, setValidCampaignCount] = useState<number>(0);
+  const [distributedCount, setDistributedCount] = useState<number>(0);
   const [loadingCount, setLoadingCount] = useState(true);
   const [displayCount, setDisplayCount] = useState<number>(0);
 
@@ -59,6 +60,7 @@ export default function SimpleLanding() {
       if (response.ok) {
         const data = await response.json();
         setValidCampaignCount(data.count || 0);
+        setDistributedCount(data.distributed || 0);
       }
     } catch (err) {
       console.error('Failed to fetch campaign count:', err);
@@ -268,6 +270,15 @@ export default function SimpleLanding() {
               By adding your number, you agree to receive SMS messages with Capital One coffee vouchers.
             </p>
           </div>
+
+          {/* Distributed Count Stat */}
+          {!loadingCount && distributedCount > 0 && (
+            <div className="mt-4 text-center">
+              <p className="text-sm text-gray-500">
+                <span className="font-semibold text-amber-700">{distributedCount.toLocaleString()}</span> free coffee{distributedCount !== 1 ? 's' : ''} distributed so far
+              </p>
+            </div>
+          )}
         </div>
       </PageTransition>
 

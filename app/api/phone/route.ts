@@ -11,50 +11,64 @@ function normalizePhoneNumber(phone: string): string {
   return phone.replace(/\D/g, '');
 }
 
+async function sleep(ms: number): Promise<void> {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
 async function testPhoneWithCapitalOne(
   phone: string,
   platform: 'android' | 'apple',
   campaignId: string,
-  marketingChannel: string
+  marketingChannel: string,
+  maxRetries: number = 3,
+  retryDelayMs: number = 2000
 ): Promise<{ success: boolean; error?: string }> {
-  try {
-    // Map 'apple' to 'iOS' for Capital One API
-    const apiPlatform = platform === 'apple' ? 'iOS' : 'android';
+  const apiPlatform = platform === 'apple' ? 'iOS' : 'android';
 
-    const response = await fetch('https://api.capitalone.com/protected/24565/retail/digital-offers/text-pass', {
-      method: 'POST',
-      headers: {
-        'accept': 'application/json; v=1',
-        'accept-language': 'en-US,en;q=0.9',
-        'content-type': 'application/json',
-      },
-      body: JSON.stringify({
-        campaignId,
-        marketingChannel,
-        platform: apiPlatform,
-        phoneNumber: phone,
-      }),
-    });
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    try {
+      const response = await fetch('https://api.capitalone.com/protected/24565/retail/digital-offers/text-pass', {
+        method: 'POST',
+        headers: {
+          'accept': 'application/json; v=1',
+          'accept-language': 'en-US,en;q=0.9',
+          'content-type': 'application/json',
+        },
+        body: JSON.stringify({
+          campaignId,
+          marketingChannel,
+          platform: apiPlatform,
+          phoneNumber: phone,
+        }),
+      });
 
-    const data = await response.json();
+      const data = await response.json();
 
-    if (response.status === 200 || response.ok) {
-      return { success: true };
+      if (response.status === 200 || response.ok) {
+        return { success: true };
+      }
+
+      // Check for invalid phone number error
+      const errorText = data.developerText || data.userText || '';
+      if (errorText.toLowerCase().includes('phonenumber is invalid') ||
+          errorText.toLowerCase().includes('phone') && errorText.toLowerCase().includes('invalid')) {
+        return { success: false, error: 'Invalid phone number' };
+      }
+
+      // For other errors (campaign issues, etc), we'll still consider the phone valid
+      // Only return false if it's specifically a phone number problem
+      return { success: false, error: data.developerText || 'Failed to send' };
+    } catch (error) {
+      // Network error - retry with delay if we have attempts left
+      if (attempt < maxRetries) {
+        await sleep(retryDelayMs);
+        continue;
+      }
+      return { success: false, error: 'Network error' };
     }
-
-    // Check for invalid phone number error
-    const errorText = data.developerText || data.userText || '';
-    if (errorText.toLowerCase().includes('phonenumber is invalid') ||
-        errorText.toLowerCase().includes('phone') && errorText.toLowerCase().includes('invalid')) {
-      return { success: false, error: 'Invalid phone number' };
-    }
-
-    // For other errors (campaign issues, etc), we'll still consider the phone valid
-    // Only return false if it's specifically a phone number problem
-    return { success: false, error: data.developerText || 'Failed to send' };
-  } catch (error) {
-    return { success: false, error: 'Network error' };
   }
+
+  return { success: false, error: 'Network error' };
 }
 
 // GET - Fetch all phone numbers

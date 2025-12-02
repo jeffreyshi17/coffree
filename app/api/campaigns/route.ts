@@ -12,9 +12,14 @@ function parseCoffreeLink(link: string) {
     const url = new URL(link);
     const params = new URLSearchParams(url.search);
     const campaignId = params.get('cid');
-    const marketingChannel = params.get('mc');
+    let marketingChannel = params.get('mc');
 
-    return { campaignId, marketingChannel };
+    // Sanitize marketing channel to only contain letters (removes trailing ) or other invalid chars)
+    if (marketingChannel) {
+      marketingChannel = marketingChannel.replace(/[^a-zA-Z]/g, '');
+    }
+
+    return { campaignId, marketingChannel: marketingChannel || null };
   } catch (error) {
     return { campaignId: null, marketingChannel: null };
   }
