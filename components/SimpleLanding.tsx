@@ -16,7 +16,6 @@ export default function SimpleLanding() {
   const [validCampaignCount, setValidCampaignCount] = useState<number>(0);
   const [distributedCount, setDistributedCount] = useState<number>(0);
   const [loadingCount, setLoadingCount] = useState(true);
-  const [displayCount, setDisplayCount] = useState<number>(0);
 
   const formatPhoneNumber = (value: string) => {
     // Remove all non-digits
@@ -40,19 +39,6 @@ export default function SimpleLanding() {
   useEffect(() => {
     fetchValidCampaignCount();
   }, []);
-
-  useEffect(() => {
-    // Animate random numbers while loading
-    if (loadingCount) {
-      const interval = setInterval(() => {
-        setDisplayCount(Math.floor(Math.random() * 10));
-      }, 100);
-      return () => clearInterval(interval);
-    } else {
-      // When loading is done, settle on the actual count
-      setDisplayCount(validCampaignCount);
-    }
-  }, [loadingCount, validCampaignCount]);
 
   const fetchValidCampaignCount = async () => {
     try {
@@ -132,19 +118,11 @@ export default function SimpleLanding() {
             <p className="text-lg text-gray-600">
               Add your phone number to receive{' '}
               <span className="font-bold text-amber-700">
-                <AnimatePresence mode="wait">
-                  <motion.span
-                    key={loadingCount ? 'loading' : displayCount}
-                    initial={{ y: 20, opacity: 0 }}
-                    animate={{ y: 0, opacity: 1 }}
-                    exit={{ y: -20, opacity: 0 }}
-                    transition={{ duration: 0.2 }}
-                    className="inline-block"
-                  >
-                    {loadingCount ? '...' : displayCount}
-                  </motion.span>
-                </AnimatePresence>
-                {' '}free Capital One drink voucher{displayCount !== 1 ? 's' : ''}
+                {loadingCount ? (
+                  'free Capital One drink vouchers'
+                ) : (
+                  `${validCampaignCount} free Capital One drink voucher${validCampaignCount !== 1 ? 's' : ''}`
+                )}
               </span>
               {' '}now and join the mailing list
             </p>

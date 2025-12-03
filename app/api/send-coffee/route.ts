@@ -313,6 +313,27 @@ export async function POST(request: NextRequest) {
     const successCount = results.filter(r => r.success && !r.skipped).length;
     const skippedCount = results.filter(r => r.skipped).length;
     const failedCount = results.filter(r => !r.success && !r.skipped).length;
+    const attemptedCount = successCount + failedCount; // excludes skipped
+
+    // If all attempted sends failed, mark campaign as invalid
+    if (attemptedCount > 0 && failedCount === attemptedCount) {
+      // Check if any errors indicate campaign issues
+      const failedResults = results.filter(r => !r.success && !r.skipped);
+      const hasCampaignError = failedResults.some(r =>
+        r.error?.toLowerCase().includes('invalid campaign') ||
+        r.error?.toLowerCase().includes('expired')
+      );
+
+      if (hasCampaignError) {
+        await supabase
+          .from('campaigns')
+          .update({
+            is_valid: false,
+            is_expired: failedResults.some(r => r.error?.toLowerCase().includes('expired'))
+          })
+          .eq('campaign_id', parsed.cid);
+      }
+    }
 
     const messageParts = [];
     if (successCount > 0) messageParts.push(`Sent to ${successCount} phone(s)`);

@@ -25,6 +25,57 @@ function parseCoffreeLink(link: string) {
   }
 }
 
+async function validateCampaign(
+  campaignId: string,
+  marketingChannel: string
+): Promise<{ valid: boolean; error?: string }> {
+  try {
+    // Test the campaign with a dummy phone number
+    const response = await fetch('https://api.capitalone.com/protected/24565/retail/digital-offers/text-pass', {
+      method: 'POST',
+      headers: {
+        'accept': 'application/json; v=1',
+        'content-type': 'application/json',
+      },
+      body: JSON.stringify({
+        campaignId: campaignId,
+        marketingChannel: marketingChannel,
+        platform: 'android',
+        phoneNumber: '0000000000', // Dummy number for validation
+      }),
+    });
+
+    const data = await response.json();
+
+    // Check for specific error responses that indicate campaign issues
+    if (data.id === 107 || data.developerText?.toLowerCase().includes('invalid campaign')) {
+      return { valid: false, error: 'Invalid Campaign Id' };
+    }
+
+    if (data.id === 108 || data.developerText?.toLowerCase().includes('expired')) {
+      return { valid: false, error: 'Campaign Expired' };
+    }
+
+    // If we get a 200 status, campaign is valid
+    if (response.ok || response.status === 200) {
+      return { valid: true };
+    }
+
+    // If error mentions phone number specifically, it means campaign is valid but phone is bad
+    if (data.developerText && (
+      data.developerText.toLowerCase().includes('phone') ||
+      data.developerText.toLowerCase().includes('number')
+    )) {
+      return { valid: true };
+    }
+
+    // For any other error, treat as potentially invalid campaign
+    return { valid: false, error: data.developerText || 'Unknown error validating campaign' };
+  } catch (error) {
+    return { valid: false, error: 'Failed to validate campaign' };
+  }
+}
+
 // GET - Fetch campaigns
 export async function GET(request: NextRequest) {
   try {
@@ -156,6 +207,15 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({
         error: 'Campaign already exists',
         campaign: existing
+      }, { status: 400 });
+    }
+
+    // Validate the campaign with Capital One API before inserting
+    const validation = await validateCampaign(campaignId, marketingChannel);
+    if (!validation.valid) {
+      return NextResponse.json({
+        error: `Campaign validation failed: ${validation.error}`,
+        type: validation.error === 'Campaign Expired' ? 'expired' : 'invalid'
       }, { status: 400 });
     }
 
