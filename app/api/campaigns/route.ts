@@ -1,80 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
-import { parse as parseUrl } from 'url';
+import { cleanCoffreeUrl, parseCoffreeLink, validateCampaign } from '../lib/campaign-utils';
 
 export const runtime = 'edge';
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
-
-function parseCoffreeLink(link: string) {
-  try {
-    const url = new URL(link);
-    const params = new URLSearchParams(url.search);
-    const campaignId = params.get('cid');
-    let marketingChannel = params.get('mc');
-
-    // Sanitize marketing channel to only contain letters (removes trailing ) or other invalid chars)
-    if (marketingChannel) {
-      marketingChannel = marketingChannel.replace(/[^a-zA-Z]/g, '');
-    }
-
-    return { campaignId, marketingChannel: marketingChannel || null };
-  } catch (error) {
-    return { campaignId: null, marketingChannel: null };
-  }
-}
-
-async function validateCampaign(
-  campaignId: string,
-  marketingChannel: string
-): Promise<{ valid: boolean; error?: string }> {
-  try {
-    // Test the campaign with a dummy phone number
-    const response = await fetch('https://api.capitalone.com/protected/24565/retail/digital-offers/text-pass', {
-      method: 'POST',
-      headers: {
-        'accept': 'application/json; v=1',
-        'content-type': 'application/json',
-      },
-      body: JSON.stringify({
-        campaignId: campaignId,
-        marketingChannel: marketingChannel,
-        platform: 'android',
-        phoneNumber: '0000000000', // Dummy number for validation
-      }),
-    });
-
-    const data = await response.json();
-
-    // Check for specific error responses that indicate campaign issues
-    if (data.id === 107 || data.developerText?.toLowerCase().includes('invalid campaign')) {
-      return { valid: false, error: 'Invalid Campaign Id' };
-    }
-
-    if (data.id === 108 || data.developerText?.toLowerCase().includes('expired')) {
-      return { valid: false, error: 'Campaign Expired' };
-    }
-
-    // If we get a 200 status, campaign is valid
-    if (response.ok || response.status === 200) {
-      return { valid: true };
-    }
-
-    // If error mentions phone number specifically, it means campaign is valid but phone is bad
-    if (data.developerText && (
-      data.developerText.toLowerCase().includes('phone') ||
-      data.developerText.toLowerCase().includes('number')
-    )) {
-      return { valid: true };
-    }
-
-    // For any other error, treat as potentially invalid campaign
-    return { valid: false, error: data.developerText || 'Unknown error validating campaign' };
-  } catch (error) {
-    return { valid: false, error: 'Failed to validate campaign' };
-  }
-}
+const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 
 // GET - Fetch campaigns
 export async function GET(request: NextRequest) {
@@ -185,8 +116,11 @@ export async function POST(request: NextRequest) {
       }, { status: 400 });
     }
 
-    // Parse the campaign ID and marketing channel from the link
-    const { campaignId, marketingChannel } = parseCoffreeLink(full_link);
+    // Clean the URL to remove tracking params like fbclid
+    const cleanedLink = cleanCoffreeUrl(full_link);
+
+    // Parse the campaign ID and marketing channel from the cleaned link
+    const { campaignId, marketingChannel } = parseCoffreeLink(cleanedLink);
 
     if (!campaignId || !marketingChannel) {
       return NextResponse.json({
@@ -215,17 +149,17 @@ export async function POST(request: NextRequest) {
     if (!validation.valid) {
       return NextResponse.json({
         error: `Campaign validation failed: ${validation.error}`,
-        type: validation.error === 'Campaign Expired' ? 'expired' : 'invalid'
+        type: validation.expired ? 'expired' : 'invalid'
       }, { status: 400 });
     }
 
-    // Insert the new campaign
+    // Insert the new campaign with cleaned URL
     const { data, error } = await supabase
       .from('campaigns')
       .insert({
         campaign_id: campaignId,
         marketing_channel: marketingChannel,
-        full_link,
+        full_link: cleanedLink,
         source,
         reddit_post_url,
         reddit_subreddit,

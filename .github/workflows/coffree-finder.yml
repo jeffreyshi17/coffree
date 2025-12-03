@@ -32,6 +32,31 @@ jobs:
       run: |
         python3 coffree_finder.py --timeframe week --auto-submit --api-url "$API_BASE_URL"
 
+    - name: Revalidate existing campaigns
+      env:
+        API_BASE_URL: ${{ secrets.API_BASE_URL }}
+      run: |
+        echo "Revalidating existing campaigns..."
+        curl -s -X POST "$API_BASE_URL/api/campaigns/revalidate" | python3 -c "
+        import sys, json
+        try:
+            data = json.load(sys.stdin)
+            print(f\"Revalidation complete:\")
+            if 'summary' in data:
+                s = data['summary']
+                print(f\"  Total campaigns: {s.get('total', 'N/A')}\")
+                print(f\"  Valid: {s.get('valid', 'N/A')}\")
+                print(f\"  Expired: {s.get('expired', 'N/A')}\")
+                print(f\"  Invalid: {s.get('invalid', 'N/A')}\")
+                print(f\"  URLs cleaned: {s.get('urls_cleaned', 'N/A')}\")
+                print(f\"  Channels cleaned: {s.get('channels_cleaned', 'N/A')}\")
+            else:
+                print(json.dumps(data, indent=2))
+        except Exception as e:
+            print(f'Error parsing response: {e}')
+            print(sys.stdin.read() if hasattr(sys.stdin, 'read') else 'No input')
+        "
+
     - name: Upload logs as artifact
       if: always()
       uses: actions/upload-artifact@v4
