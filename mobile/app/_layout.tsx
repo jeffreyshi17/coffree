@@ -4,6 +4,7 @@ import { StatusBar } from 'expo-status-bar';
 import * as Notifications from 'expo-notifications';
 import { registerForPushNotificationsAsync, addNotificationReceivedListener, addNotificationResponseReceivedListener } from '../lib/notifications';
 import { initializeNetworkSync, addNetworkListener, type NetworkStatus } from '../lib/networkSync';
+import OfflineIndicator from '../components/OfflineIndicator';
 
 export default function RootLayout() {
   const router = useRouter();
@@ -63,6 +64,7 @@ export default function RootLayout() {
   return (
     <>
       <StatusBar style="auto" />
+      <OfflineIndicator networkStatus={networkStatus} />
       <Stack
         screenOptions={{
           headerStyle: {
