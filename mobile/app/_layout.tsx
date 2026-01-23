@@ -3,12 +3,19 @@ import { Stack, useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import * as Notifications from 'expo-notifications';
 import { registerForPushNotificationsAsync, addNotificationReceivedListener, addNotificationResponseReceivedListener } from '../lib/notifications';
+import { initializeNetworkSync, addNetworkListener, type NetworkStatus } from '../lib/networkSync';
 
 export default function RootLayout() {
   const router = useRouter();
   const [expoPushToken, setExpoPushToken] = useState<string | null>(null);
+  const [networkStatus, setNetworkStatus] = useState<NetworkStatus>({
+    isConnected: true,
+    isInternetReachable: null,
+    type: null,
+  });
   const notificationListener = useRef<Notifications.Subscription>();
   const responseListener = useRef<Notifications.Subscription>();
+  const networkUnsubscribe = useRef<(() => void) | null>(null);
 
   useEffect(() => {
     // Register for push notifications
@@ -30,6 +37,14 @@ export default function RootLayout() {
       router.push('/(tabs)/campaigns');
     });
 
+    // Initialize network monitoring and background sync
+    networkUnsubscribe.current = initializeNetworkSync();
+
+    // Listen for network status changes
+    const removeNetworkListener = addNetworkListener((status: NetworkStatus) => {
+      setNetworkStatus(status);
+    });
+
     // Cleanup listeners on unmount
     return () => {
       if (notificationListener.current) {
@@ -38,6 +53,10 @@ export default function RootLayout() {
       if (responseListener.current) {
         responseListener.current.remove();
       }
+      if (networkUnsubscribe.current) {
+        networkUnsubscribe.current();
+      }
+      removeNetworkListener();
     };
   }, [router]);
 
