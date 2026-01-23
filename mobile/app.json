@@ -22,6 +22,14 @@
       "infoPlist": {
         "UIBackgroundModes": [
           "remote-notification"
+        ],
+        "NSAppTransportSecurity": {
+          "NSAllowsArbitraryLoads": true
+        }
+      },
+      "entitlements": {
+        "com.apple.security.application-groups": [
+          "group.com.freecoffee.app"
         ]
       }
     },
