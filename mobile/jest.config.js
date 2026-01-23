@@ -6,6 +6,7 @@ module.exports = {
   ],
   moduleNameMapper: {
     '^expo-modules-core/src/Refs$': '<rootDir>/__mocks__/expo-modules-core-Refs.js',
+    '^expo-modules-core/src/web/index.web$': '<rootDir>/__mocks__/expo-modules-core-Refs.js',
   },
   collectCoverageFrom: [
     'app/**/*.{ts,tsx}',
