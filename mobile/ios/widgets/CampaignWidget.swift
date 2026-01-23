@@ -57,43 +57,38 @@ struct CampaignProvider: TimelineProvider {
     }
 
     private func fetchCampaignData() async -> CampaignEntry {
-        // Get API URL from environment or use default
-        let apiUrl = ProcessInfo.processInfo.environment["EXPO_PUBLIC_API_URL"] ?? "http://localhost:3000"
-        let urlString = "\(apiUrl)/api/campaigns/count"
-
-        guard let url = URL(string: urlString) else {
+        // Get Supabase configuration from environment
+        guard let supabaseUrl = ProcessInfo.processInfo.environment["EXPO_PUBLIC_SUPABASE_URL"],
+              let supabaseKey = ProcessInfo.processInfo.environment["EXPO_PUBLIC_SUPABASE_ANON_KEY"] else {
             return CampaignEntry(
                 date: Date(),
                 campaignCount: 0,
                 distributedCount: 0,
-                error: "Invalid URL"
+                error: "Missing Supabase config"
             )
         }
 
-        var request = URLRequest(url: url)
-        request.httpMethod = "GET"
-        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        request.timeoutInterval = 10
-
         do {
-            let (data, response) = try await URLSession.shared.data(for: request)
+            // Fetch campaign count from Supabase
+            let campaignCount = try await fetchSupabaseCount(
+                supabaseUrl: supabaseUrl,
+                supabaseKey: supabaseKey,
+                table: "campaigns",
+                filters: ["is_valid": "eq.true", "is_expired": "eq.false"]
+            )
 
-            guard let httpResponse = response as? HTTPURLResponse,
-                  httpResponse.statusCode == 200 else {
-                return CampaignEntry(
-                    date: Date(),
-                    campaignCount: 0,
-                    distributedCount: 0,
-                    error: "API Error"
-                )
-            }
-
-            let campaignData = try JSONDecoder().decode(CampaignData.self, from: data)
+            // Fetch distributed count from Supabase
+            let distributedCount = try await fetchSupabaseCount(
+                supabaseUrl: supabaseUrl,
+                supabaseKey: supabaseKey,
+                table: "message_logs",
+                filters: ["status": "eq.success"]
+            )
 
             return CampaignEntry(
                 date: Date(),
-                campaignCount: campaignData.count,
-                distributedCount: campaignData.distributed,
+                campaignCount: campaignCount,
+                distributedCount: distributedCount,
                 error: nil
             )
         } catch {
@@ -104,6 +99,45 @@ struct CampaignProvider: TimelineProvider {
                 error: error.localizedDescription
             )
         }
+    }
+
+    private func fetchSupabaseCount(
+        supabaseUrl: String,
+        supabaseKey: String,
+        table: String,
+        filters: [String: String]
+    ) async throws -> Int {
+        // Build URL with filters
+        var urlComponents = URLComponents(string: "\(supabaseUrl)/rest/v1/\(table)")!
+        urlComponents.queryItems = filters.map { URLQueryItem(name: $0.key, value: $0.value) }
+
+        guard let url = urlComponents.url else {
+            throw NSError(domain: "WidgetError", code: 1, userInfo: [NSLocalizedDescriptionKey: "Invalid URL"])
+        }
+
+        var request = URLRequest(url: url)
+        request.httpMethod = "GET"
+        request.setValue(supabaseKey, forHTTPHeaderField: "apikey")
+        request.setValue("Bearer \(supabaseKey)", forHTTPHeaderField: "Authorization")
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.setValue("exact", forHTTPHeaderField: "Prefer")
+        request.timeoutInterval = 10
+
+        let (_, response) = try await URLSession.shared.data(for: request)
+
+        guard let httpResponse = response as? HTTPURLResponse,
+              httpResponse.statusCode == 200 || httpResponse.statusCode == 206 else {
+            throw NSError(domain: "WidgetError", code: 2, userInfo: [NSLocalizedDescriptionKey: "API Error"])
+        }
+
+        // Parse count from Content-Range header
+        if let contentRange = httpResponse.value(forHTTPHeaderField: "Content-Range"),
+           let countString = contentRange.split(separator: "/").last,
+           let count = Int(countString) {
+            return count
+        }
+
+        return 0
     }
 }
 

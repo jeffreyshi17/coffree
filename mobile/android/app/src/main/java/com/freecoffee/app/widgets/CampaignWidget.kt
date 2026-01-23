@@ -32,10 +32,13 @@ class CampaignWidget : AppWidgetProvider() {
         private const val API_TIMEOUT_MS = 10000 // 10 seconds
         private const val ACTION_WIDGET_UPDATE = "com.freecoffee.app.WIDGET_UPDATE"
 
-        // Get API URL from BuildConfig or use default
-        private fun getApiUrl(): String {
-            // In production, this would come from BuildConfig or environment
-            return System.getenv("EXPO_PUBLIC_API_URL") ?: "http://localhost:3000"
+        // Get Supabase configuration from environment
+        private fun getSupabaseUrl(): String? {
+            return System.getenv("EXPO_PUBLIC_SUPABASE_URL")
+        }
+
+        private fun getSupabaseKey(): String? {
+            return System.getenv("EXPO_PUBLIC_SUPABASE_ANON_KEY")
         }
     }
 
@@ -136,32 +139,79 @@ class CampaignWidget : AppWidgetProvider() {
     }
 
     /**
-     * Fetch campaign count data from the API
+     * Fetch campaign count data from Supabase
      */
     private suspend fun fetchCampaignData(): CampaignData {
         return withContext(Dispatchers.IO) {
-            val apiUrl = getApiUrl()
-            val urlString = "$apiUrl/api/campaigns/count"
+            val supabaseUrl = getSupabaseUrl()
+            val supabaseKey = getSupabaseKey()
+
+            if (supabaseUrl == null || supabaseKey == null) {
+                throw Exception("Missing Supabase configuration")
+            }
+
+            // Fetch campaign count from Supabase
+            val campaignCount = fetchSupabaseCount(
+                supabaseUrl = supabaseUrl,
+                supabaseKey = supabaseKey,
+                table = "campaigns",
+                filters = mapOf("is_valid" to "eq.true", "is_expired" to "eq.false")
+            )
+
+            // Fetch distributed count from Supabase
+            val distributedCount = fetchSupabaseCount(
+                supabaseUrl = supabaseUrl,
+                supabaseKey = supabaseKey,
+                table = "message_logs",
+                filters = mapOf("status" to "eq.success")
+            )
+
+            CampaignData(
+                count = campaignCount,
+                distributed = distributedCount
+            )
+        }
+    }
+
+    /**
+     * Fetch count from Supabase REST API
+     */
+    private suspend fun fetchSupabaseCount(
+        supabaseUrl: String,
+        supabaseKey: String,
+        table: String,
+        filters: Map<String, String>
+    ): Int {
+        return withContext(Dispatchers.IO) {
+            // Build URL with filters
+            val filterQuery = filters.map { "${it.key}=${it.value}" }.joinToString("&")
+            val urlString = "$supabaseUrl/rest/v1/$table?$filterQuery"
             val url = URL(urlString)
 
             val connection = url.openConnection() as HttpURLConnection
             try {
                 connection.requestMethod = "GET"
+                connection.setRequestProperty("apikey", supabaseKey)
+                connection.setRequestProperty("Authorization", "Bearer $supabaseKey")
                 connection.setRequestProperty("Content-Type", "application/json")
+                connection.setRequestProperty("Prefer", "count=exact")
                 connection.connectTimeout = API_TIMEOUT_MS
                 connection.readTimeout = API_TIMEOUT_MS
 
                 val responseCode = connection.responseCode
-                if (responseCode == HttpURLConnection.HTTP_OK) {
-                    val response = connection.inputStream.bufferedReader().use { it.readText() }
-                    val json = JSONObject(response)
-
-                    CampaignData(
-                        count = json.optInt("count", 0),
-                        distributed = json.optInt("distributed", 0)
-                    )
+                if (responseCode == HttpURLConnection.HTTP_OK || responseCode == HttpURLConnection.HTTP_PARTIAL) {
+                    // Parse count from Content-Range header
+                    val contentRange = connection.getHeaderField("Content-Range")
+                    if (contentRange != null) {
+                        // Format: "0-0/123" or "*/123"
+                        val count = contentRange.substringAfterLast("/").toIntOrNull()
+                        if (count != null) {
+                            return@withContext count
+                        }
+                    }
+                    0
                 } else {
-                    throw Exception("API returned status $responseCode")
+                    throw Exception("Supabase API returned status $responseCode")
                 }
             } finally {
                 connection.disconnect()
