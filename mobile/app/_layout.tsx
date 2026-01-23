@@ -1,10 +1,11 @@
 import { useEffect, useRef, useState } from 'react';
-import { Stack } from 'expo-router';
+import { Stack, useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import * as Notifications from 'expo-notifications';
 import { registerForPushNotificationsAsync, addNotificationReceivedListener, addNotificationResponseReceivedListener } from '../lib/notifications';
 
 export default function RootLayout() {
+  const router = useRouter();
   const [expoPushToken, setExpoPushToken] = useState<string | null>(null);
   const notificationListener = useRef<Notifications.Subscription>();
   const responseListener = useRef<Notifications.Subscription>();
@@ -25,8 +26,8 @@ export default function RootLayout() {
 
     // Listen for notification taps
     responseListener.current = addNotificationResponseReceivedListener(response => {
-      // Handle notification tap - navigate to campaigns screen
-      // TODO: Implement navigation to campaigns screen in next subtask
+      // Navigate to campaigns screen when notification is tapped
+      router.push('/(tabs)/campaigns');
     });
 
     // Cleanup listeners on unmount
@@ -38,7 +39,7 @@ export default function RootLayout() {
         responseListener.current.remove();
       }
     };
-  }, []);
+  }, [router]);
 
   return (
     <>
