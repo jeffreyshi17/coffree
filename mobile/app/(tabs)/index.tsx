@@ -6,10 +6,11 @@ import {
   TouchableOpacity,
   ScrollView,
   ActivityIndicator,
-  Alert,
+  Modal,
 } from 'react-native';
 import PhoneInput from '../../components/PhoneInput';
 import PlatformSelector from '../../components/PlatformSelector';
+import ErrorMessage from '../../components/ErrorMessage';
 import { useSubscription } from '../../hooks/useSubscription';
 import { validatePhoneNumber } from '../../services/phoneService';
 
@@ -18,6 +19,8 @@ export default function HomeScreen() {
   const [platform, setPlatform] = useState<'android' | 'apple'>('android');
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [showSuccess, setShowSuccess] = useState(false);
+  const [successMessage, setSuccessMessage] = useState('');
 
   const { addSubscription } = useSubscription();
 
@@ -45,12 +48,13 @@ export default function HomeScreen() {
         const sentCount = result.sent?.length || 0;
         const message =
           sentCount > 0
-            ? `Success! You'll receive ${sentCount} free coffee voucher${
+            ? `You'll receive ${sentCount} free coffee voucher${
                 sentCount !== 1 ? 's' : ''
-              } via text shortly.`
-            : 'Success! You have been added to the mailing list.';
+              } via text shortly!`
+            : 'You have been added to the mailing list!';
 
-        Alert.alert('Subscribed!', message, [{ text: 'OK' }]);
+        setSuccessMessage(message);
+        setShowSuccess(true);
 
         // Reset form
         setPhone('');
@@ -63,6 +67,15 @@ export default function HomeScreen() {
     } finally {
       setIsSubmitting(false);
     }
+  };
+
+  const handleCloseSuccess = () => {
+    setShowSuccess(false);
+    setSuccessMessage('');
+  };
+
+  const handleRetryError = () => {
+    setError(null);
   };
 
   const isFormValid = phone.length > 0 && !isSubmitting;
@@ -97,7 +110,7 @@ export default function HomeScreen() {
             value={phone}
             onChangeText={setPhone}
             disabled={isSubmitting}
-            error={error}
+            error={null}
           />
 
           <PlatformSelector
@@ -105,6 +118,17 @@ export default function HomeScreen() {
             onChange={setPlatform}
             disabled={isSubmitting}
           />
+
+          {error && (
+            <View style={styles.errorContainer}>
+              <ErrorMessage
+                title="Subscription Failed"
+                message={error}
+                onRetry={handleRetryError}
+                retryText="Dismiss"
+              />
+            </View>
+          )}
 
           <TouchableOpacity
             style={[
@@ -131,6 +155,31 @@ export default function HomeScreen() {
           </TouchableOpacity>
         </View>
       </View>
+
+      {/* Success Modal */}
+      <Modal
+        visible={showSuccess}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={handleCloseSuccess}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.successIconContainer}>
+              <Text style={styles.successIcon}>✓</Text>
+            </View>
+            <Text style={styles.successTitle}>Success!</Text>
+            <Text style={styles.successMessage}>{successMessage}</Text>
+            <TouchableOpacity
+              style={styles.successButton}
+              onPress={handleCloseSuccess}
+              activeOpacity={0.8}
+            >
+              <Text style={styles.successButtonText}>Great!</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
 
       {/* Info Section */}
       <View style={styles.infoSection}>
@@ -225,6 +274,9 @@ const styles = StyleSheet.create({
   form: {
     gap: 20,
   },
+  errorContainer: {
+    marginTop: -8,
+  },
   submitButton: {
     backgroundColor: '#d97706',
     height: 56,
@@ -294,5 +346,63 @@ const styles = StyleSheet.create({
     color: '#666',
     flex: 1,
     lineHeight: 20,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  modalContent: {
+    backgroundColor: '#fff',
+    borderRadius: 16,
+    padding: 32,
+    alignItems: 'center',
+    maxWidth: 400,
+    width: '100%',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 16,
+    elevation: 8,
+  },
+  successIconContainer: {
+    width: 80,
+    height: 80,
+    backgroundColor: '#d1fae5',
+    borderRadius: 40,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+  successIcon: {
+    fontSize: 48,
+    color: '#10b981',
+    fontWeight: 'bold',
+  },
+  successTitle: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: '#333',
+    marginBottom: 12,
+  },
+  successMessage: {
+    fontSize: 16,
+    color: '#666',
+    textAlign: 'center',
+    marginBottom: 24,
+    lineHeight: 24,
+  },
+  successButton: {
+    backgroundColor: '#d97706',
+    paddingHorizontal: 32,
+    paddingVertical: 12,
+    borderRadius: 8,
+  },
+  successButtonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: 'bold',
   },
 });

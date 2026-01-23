@@ -5,10 +5,11 @@ import {
   StyleSheet,
   FlatList,
   RefreshControl,
-  ActivityIndicator,
 } from 'react-native';
 import { useCampaigns } from '../../hooks/useCampaigns';
 import CampaignCard from '../../components/CampaignCard';
+import LoadingSpinner from '../../components/LoadingSpinner';
+import ErrorMessage from '../../components/ErrorMessage';
 
 export default function CampaignsScreen() {
   const { campaigns, loading, error, refetch } = useCampaigns();
@@ -23,8 +24,7 @@ export default function CampaignsScreen() {
   if (loading && !refreshing) {
     return (
       <View style={styles.centerContainer}>
-        <ActivityIndicator size="large" color="#d97706" />
-        <Text style={styles.loadingText}>Loading campaigns...</Text>
+        <LoadingSpinner message="Loading campaigns..." />
       </View>
     );
   }
@@ -32,9 +32,11 @@ export default function CampaignsScreen() {
   if (error) {
     return (
       <View style={styles.centerContainer}>
-        <Text style={styles.errorIcon}>⚠️</Text>
-        <Text style={styles.errorTitle}>Failed to Load Campaigns</Text>
-        <Text style={styles.errorText}>{error}</Text>
+        <ErrorMessage
+          title="Failed to Load Campaigns"
+          message={error}
+          onRetry={refetch}
+        />
       </View>
     );
   }
@@ -112,28 +114,6 @@ const styles = StyleSheet.create({
   },
   listContent: {
     padding: 20,
-  },
-  loadingText: {
-    marginTop: 12,
-    fontSize: 16,
-    color: '#666',
-  },
-  errorIcon: {
-    fontSize: 48,
-    marginBottom: 16,
-  },
-  errorTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: '#333',
-    marginBottom: 8,
-    textAlign: 'center',
-  },
-  errorText: {
-    fontSize: 14,
-    color: '#666',
-    textAlign: 'center',
-    paddingHorizontal: 20,
   },
   emptyIconContainer: {
     width: 100,
