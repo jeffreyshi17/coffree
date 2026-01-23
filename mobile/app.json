@@ -59,7 +59,8 @@
           "color": "#8B4513",
           "defaultChannel": "default"
         }
-      ]
+      ],
+      "./plugins/withAndroidWidget.js"
     ],
     "experiments": {
       "typedRoutes": true
