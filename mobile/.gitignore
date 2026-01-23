@@ -4,3 +4,8 @@
 
 expo-env.d.ts
 # @end expo-cli
+
+# Expo prebuild generated folders
+android/
+ios/
+.expo/

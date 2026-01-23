@@ -37,7 +37,7 @@
       "package": "com.freecoffee.app",
       "versionCode": 1,
       "adaptiveIcon": {
-        "foregroundImage": "./assets/icon.png",
+        "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#8B4513"
       },
       "permissions": [
