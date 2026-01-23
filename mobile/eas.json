@@ -16,7 +16,8 @@
     "preview": {
       "distribution": "internal",
       "ios": {
-        "simulator": false
+        "simulator": false,
+        "bundleIdentifier": "com.freecoffee.app"
       },
       "android": {
         "buildType": "apk"
@@ -25,7 +26,9 @@
     "production": {
       "autoIncrement": true,
       "ios": {
-        "simulator": false
+        "simulator": false,
+        "bundleIdentifier": "com.freecoffee.app",
+        "credentialsSource": "remote"
       },
       "android": {
         "buildType": "app-bundle"
