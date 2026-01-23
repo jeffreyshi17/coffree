@@ -54,6 +54,28 @@ async function fetchWithRetry(
 }
 
 /**
+ * Fetch list of campaigns
+ */
+export async function getCampaigns(): Promise<Campaign[]> {
+  const response = await fetchWithRetry(
+    `${API_BASE_URL}/api/campaigns?is_valid=true&is_expired=false`,
+    {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    }
+  );
+
+  if (!response.ok) {
+    throw new Error('Failed to fetch campaigns');
+  }
+
+  const data = await response.json();
+  return data.campaigns || [];
+}
+
+/**
  * Fetch count of valid campaigns and distributed vouchers
  */
 export async function getCampaignCount(): Promise<CampaignCount> {
