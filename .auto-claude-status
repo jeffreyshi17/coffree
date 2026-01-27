@@ -1,0 +1,25 @@
+{
+  "active": true,
+  "spec": "004-native-mobile-application",
+  "state": "building",
+  "subtasks": {
+    "completed": 30,
+    "total": 31,
+    "in_progress": 1,
+    "failed": 0
+  },
+  "phase": {
+    "current": "Integration & End-to-End Testing",
+    "id": null,
+    "total": 3
+  },
+  "workers": {
+    "active": 0,
+    "max": 1
+  },
+  "session": {
+    "number": 138,
+    "started_at": "2026-01-23T03:21:47.913556"
+  },
+  "last_update": "2026-01-23T06:51:24.251403"
+}

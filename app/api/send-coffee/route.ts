@@ -208,6 +208,7 @@ export async function POST(request: NextRequest) {
       .eq('campaign_id', parsed.cid)
       .single();
 
+    let isNewCampaign = false;
     if (!existingCampaign) {
       // This is a new manually-added campaign
       await supabase
@@ -220,12 +221,33 @@ export async function POST(request: NextRequest) {
           is_valid: true,
           is_expired: false,
         });
+      isNewCampaign = true;
     } else if (!existingCampaign.first_submitted_at) {
       // Update the first submission timestamp
       await supabase
         .from('campaigns')
         .update({ first_submitted_at: new Date().toISOString() })
         .eq('campaign_id', parsed.cid);
+    }
+
+    // Send push notification for new campaigns
+    if (isNewCampaign) {
+      try {
+        await fetch(`${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'}/api/notifications/send`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            campaignId: parsed.cid,
+            marketingChannel: parsed.mc,
+            title: '☕ New Free Coffee Available!',
+            body: 'A new coffee campaign just arrived. Check the app to get your voucher!',
+          }),
+        });
+      } catch (error) {
+        // Don't fail the entire request if notification fails
+      }
     }
 
     // Get phone numbers - either the override or all from Supabase

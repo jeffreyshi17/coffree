@@ -93,7 +93,7 @@ export async function GET(request: NextRequest) {
 // POST - Add a new phone number
 export async function POST(request: NextRequest) {
   try {
-    const { phone, platform } = await request.json();
+    const { phone, platform, pushToken } = await request.json();
 
     if (!phone || !platform) {
       return NextResponse.json({ error: 'Phone and platform are required' }, { status: 400 });
@@ -135,7 +135,7 @@ export async function POST(request: NextRequest) {
       // No campaigns yet, just add the number without testing
       const { data, error } = await supabase
         .from('phone_numbers')
-        .insert({ phone: normalizedPhone, platform })
+        .insert({ phone: normalizedPhone, platform, push_token: pushToken || null })
         .select()
         .single();
 
@@ -222,7 +222,7 @@ export async function POST(request: NextRequest) {
     // Add the phone to the database
     const { data, error } = await supabase
       .from('phone_numbers')
-      .insert({ phone: normalizedPhone, platform })
+      .insert({ phone: normalizedPhone, platform, push_token: pushToken || null })
       .select()
       .single();
 
